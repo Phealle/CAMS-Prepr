@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAMS Legacy Test Questions</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #0b1328;
+            --ink: #e5e7eb;
+            --muted: #9ca3af;
+            --accent: #38bdf8;
+            --accent2: #22d3ee;
+            --ok: #10b981;
+            --warn: #eab308;
+            --err: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Arial;
+            background: linear-gradient(180deg, #0b1022, #0f172a 40%, #0b1022);
+            color: var(--ink);
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        header {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.03);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 20px 16px;
+            text-align: center;
+        }
+
+        h1 {
+            margin: 0;
+            font-weight: 800;
+            font-size: clamp(24px, 4vw, 36px);
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: var(--muted);
+            font-size: 16px;
+            margin-top: 8px;
+        }
+
+        main {
+            max-width: 1000px;
+            margin: 24px auto;
+            padding: 0 16px 100px;
+        }
+
+        fieldset {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            margin: 20px 0;
+            padding: 20px;
+        }
+
+        legend {
+            font-weight: 700;
+            font-size: 18px;
+            color: var(--ink);
+            padding: 0 12px;
+            background: var(--bg);
+        }
+
+        label {
+            display: block;
+            padding: 12px;
+            margin: 8px 0;
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: rgba(255, 255, 255, 0.03);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            color: var(--ink);
+        }
+
+        label:hover {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(56, 189, 248, 0.3);
+        }
+
+        input[type="radio"], input[type="checkbox"] {
+            margin-right: 12px;
+            accent-color: var(--accent);
+        }
+
+        button {
+            background: linear-gradient(135deg, var(--accent), var(--accent2));
+            color: #06202b;
+            border: none;
+            border-radius: 12px;
+            padding: 12px 20px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            margin: 8px 0;
+        }
+
+        button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(56, 189, 248, 0.3);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .correct {
+            color: var(--ok) !important;
+            background: rgba(16, 185, 129, 0.1) !important;
+            border-color: rgba(16, 185, 129, 0.5) !important;
+        }
+
+        .incorrect {
+            color: var(--err) !important;
+            background: rgba(239, 68, 68, 0.1) !important;
+            border-color: rgba(239, 68, 68, 0.5) !important;
+        }
+
+        .result-message {
+            font-weight: bold;
+            margin-top: 2em;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 18px;
+        }
+
+        .result-message.good {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: var(--ok);
+        }
+
+        .result-message.average {
+            background: rgba(234, 179, 8, 0.1);
+            border: 1px solid rgba(234, 179, 8, 0.3);
+            color: var(--warn);
+        }
+
+        .result-message.poor {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            color: var(--err);
+        }
+
+        .footer {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(10, 15, 30, 0.95);
+            backdrop-filter: blur(8px);
+            border-top: 1px solid rgba(255, 255, 255, 0.08);
+            padding: 16px;
+            text-align: center;
+            font-size: 12px;
+            color: var(--muted);
+        }
+
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent2), var(--accent));
+            transition: width 0.3s ease;
+            z-index: 10;
+        }
+
+        @media (max-width: 768px) {
+            main {
+                padding: 0 12px 100px;
+            }
+            
+            header {
+                padding: 16px 12px;
+            }
+            
+            fieldset {
+                margin: 16px 0;
+                padding: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="progress-bar" id="progressBar"></div>
+    
+    <header>
+        <h1>CAMS Legacy Test Questions</h1>
+        <p class="subtitle">120 Random Questions • Multiple Choice Format</p>
+    </header>
+
+    <main id="mainContent">
+        <!-- Questions will be dynamically loaded here -->
+    </main>
+
+    <div class="footer">
+        <p>CAMS Study Tools • Legacy Format • Use keyboard shortcuts for faster navigation</p>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/index.js"></script>
+</body>
+</html>

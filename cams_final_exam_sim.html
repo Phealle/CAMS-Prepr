@@ -1,0 +1,578 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAMS Final Exam Simulator — Weighted Distribution</title>
+<style>
+:root{
+  --bg:#0f172a; --panel:#0b1328; --ink:#e5e7eb; --muted:#9ca3af;
+  --accent:#38bdf8; --accent2:#22d3ee; --ok:#10b981; --warn:#eab308; --err:#ef4444;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Arial; background:linear-gradient(180deg,#0b1022,#0f172a 40%,#0b1022); color:var(--ink);}
+header{position:sticky;top:0;z-index:5; backdrop-filter: blur(10px); background:rgba(255,255,255,.03); border-bottom:1px solid rgba(255,255,255,.06); padding:16px}
+h1{margin:0;font-weight:800;font-size:clamp(22px,3vw,30px)}
+.sub{color:var(--muted);font-size:14px;margin-top:4px}
+main{max-width:1100px;margin:20px auto;padding:0 16px 120px}
+.panel{background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.3); overflow:hidden; margin-bottom:14px}
+.block{padding:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+select,input[type=number],button{background:#09122a;border:1px solid rgba(255,255,255,.12);color:var(--ink);padding:10px 12px;border-radius:12px;font-size:14px;outline:none}
+button{cursor:pointer;transition:.15s; background:#0c1a3e}
+button:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(0,0,0,.35)}
+button.primary{background:linear-gradient(135deg,#0ea5e9,#22d3ee);color:#06202b;border:0;font-weight:700}
+button.ghost{background:transparent;border:1px dashed rgba(255,255,255,.2)}
+.small{font-size:12px;color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.pill{background:#0b1328;border:1px solid rgba(255,255,255,.12);padding:8px 10px;border-radius:999px;font-size:12px;display:inline-flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%}
+.blue{background:var(--accent2)} .green{background:var(--ok)} .red{background:var(--err)}
+.progress{height:10px;background:#1f2937;border-radius:999px;overflow:hidden}
+.bar{height:100%;background:linear-gradient(90deg,#22d3ee,#0ea5e9);width:0%}
+.question{margin:16px;padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.03)}
+.qhead{font-weight:700;margin-bottom:8px}
+.qmeta{font-size:12px;color:var(--muted)}
+.answers{display:grid;gap:8px;margin-top:10px}
+.ans{padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:#0b1328;cursor:pointer}
+.ans.selected{border-color:#60a5fa;background:rgba(59,130,246,.12)}
+.footer{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+        padding:14px;border-top:1px solid rgba(255,255,255,.08);background:rgba(10,15,30,.96);backdrop-filter: blur(8px)}
+.badge{padding:6px 10px;border-radius:999px;font-size:12px}
+.badge.ok{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.5)}
+.badge.warn{background:rgba(234,179,8,.15);border:1px solid rgba(234,179,8,.5)}
+.badge.err{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.5)}
+.kbd{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1328;border:1px solid rgba(255,255,255,.15);padding:2px 6px;border-radius:6px;color:#a7f3d0}
+.nav{display:flex;gap:6px;flex-wrap:wrap}
+.nav button{padding:6px 10px;border-radius:8px}
+.review{padding:14px}
+.review .card{border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;margin:10px 0;background:rgba(255,255,255,.03)}
+.correct{color:#10b981}
+.wrong{color:#ef4444}
+hr.sep{border:none;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);margin:12px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>CAMS Final Exam Simulator — Weighted Distribution</h1>
+  <div class="sub">Simulates the real exam with the distribution you provided. No instant feedback; full review at the end. Time limit: 3h30m. Keys: <span class="kbd">1–4</span> answer, <span class="kbd">N</span> next, <span class="kbd">P</span> prev.</div>
+</header>
+
+<main>
+  <section class="panel">
+    <div class="block">
+      <div class="grid">
+        <div>
+          <label>Total Questions</label><br>
+          <input id="totalQ" type="number" min="60" max="150" value="125">
+          <div class="small">Default 125 per your distribution. You can reduce for shorter mocks; weights stay proportional.</div>
+        </div>
+        <div>
+          <label>Allow slight re-use if pool is short?</label><br>
+          <select id="reuse">
+            <option value="no" selected>No (unique only)</option>
+            <option value="yes">Yes (rare reuse to hit exact weights)</option>
+          </select>
+          <div class="small">Recommended: No. Set to “Yes” only if you want exact weights with limited pools.</div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="startBtn">Start Exam</button>
+        <span class="pill"><span class="dot blue"></span><span id="status">Idle</span></span>
+        <span class="pill"><span class="dot green"></span><span id="answeredMeta">Answered: 0</span></span>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div class="progress" style="flex:1"><div class="bar" id="progressBar"></div></div>
+      </div>
+      <div class="small" style="margin-top:8px">
+        Distribution applied: Intl Orgs & Standards 28; Legal & Regulatory 31; Operational Procedures 35; Investigations & LE 18; Tech & Systems 8; AI/Crypto 5.
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="examPanel" style="display:none">
+    <div class="block" id="qContainer"></div>
+    <div class="block">
+      <div class="nav">
+        <button id="prevBtn" class="ghost">Prev (P)</button>
+        <button id="nextBtn" class="primary">Next (N)</button>
+        <button id="reviewBtn" class="ghost">Mark for Review</button>
+        <button id="gridBtn" class="ghost">Question Grid</button>
+        <button id="finishBtn" class="primary">Finish & Grade</button>
+      </div>
+      <div id="grid" class="small" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="resultPanel" style="display:none">
+    <div class="block">
+      <h2>Results</h2>
+      <div id="scoreline"></div>
+      <hr class="sep"/>
+      <div class="review" id="review"></div>
+    </div>
+  </section>
+</main>
+
+<div class="footer">
+  <div>Q <span id="qIndex">0</span>/<span id="qTotal">0</span></div>
+  <div id="footerCat" class="small"></div>
+  <div id="timer" class="badge ok">⏱ 03:30:00</div>
+</div>
+
+<script>
+// ======= Subtopic structure and target weights =======
+
+const TARGET = {
+  "International Organizations & Standards": {
+    total: 28,
+    subs: {
+      "FATF Immediate Outcomes": 8,
+      "Basel Committee": 5,
+      "Egmont Group": 6,
+      "Wolfsberg Group": 4,
+      "FSRBs": 3,
+      "Other international bodies": 2
+    }
+  },
+  "Legal & Regulatory Frameworks": {
+    total: 31,
+    subs: {
+      "USA PATRIOT Act (extraterritorial reach)": 12,
+      "EU AML Directives": 7,
+      "OFAC Sanctions": 8,
+      "Other jurisdictional requirements": 4
+    }
+  },
+  "Operational Procedures": {
+    total: 35,
+    subs: {
+      "CDD/EDD Implementation": 11,
+      "SAR/STR Filing": 8,
+      "Transaction Monitoring": 9,
+      "Record Keeping": 7
+    }
+  },
+  "Investigation & Law Enforcement": {
+    total: 18,
+    subs: {
+      "Investigation methodologies": 8,
+      "Law enforcement cooperation": 5,
+      "Asset recovery": 3,
+      "Information sharing protocols": 2
+    }
+  },
+  "Technology & Systems": {
+    total: 8,
+    subs: {
+      "Monitoring systems": 4,
+      "Data analytics": 2,
+      "RegTech solutions": 2
+    }
+  },
+  "AI and Cryptocurrency": {
+    total: 5,
+    subs: {
+      "AI/Crypto combined": 5
+    }
+  }
+};
+
+// ======= Question helper =======
+function Q(q, options, a, exp){ return {q, options, a, exp}; }
+
+// ======= Banks: ~4+ items per subtopic (can be extended easily) =======
+const BANK = {
+  "International Organizations & Standards": {
+    "FATF Immediate Outcomes": [
+      Q("FATF Immediate Outcomes measure:",["Technical compliance only","Effectiveness of a country's AML/CFT regime across 11 outcomes","Bank profitability","FIU staffing levels"],1,"The IOs assess effectiveness (e.g., risk understanding, supervision, financial intelligence, prosecutions)."),
+      Q("Which aligns with IO.6 (Financial intelligence)?",["Timely FIU dissemination to competent authorities","High number of bank accounts","More STRs regardless of quality","Court convictions only"],0,"IO.6 looks at whether FIU intelligence is used and disseminated effectively."),
+      Q("A poor rating on IO.4 (preventive measures) most likely indicates:",["No national risk assessment","Weak CDD/monitoring implementation by FIs and DNFBPs","Lack of ML prosecutions","Low cash usage"],1,"IO.4 focuses on how well obliged entities apply preventive measures."),
+      Q("Improvement action for IO.10 (TF investigations):",["Increase ad campaigns","Enhance LEA capacity and coordination on TF cases","Reduce SAR filings","Close PEP accounts"],1,"IO.10 deals with effective TF investigation and prosecution.")
+    ],
+    "Basel Committee": [
+      Q("Basel's CDD guidance emphasises:",["Uniform CDD for all customers","Risk-based approach and ongoing monitoring","EDD only at onboarding","Vendor-managed KYC only"],1,"Proportionality and governance are key."),
+      Q("Board responsibilities include:",["Approving customer acceptance policies and oversight of AML programme","Drafting STRs","Selecting correspondent banks for RMs","Setting interest rates"],0,"Tone from the top and governance."),
+      Q("Basel paper expects record retention:",["Indefinite","As set by law; typically ≥5 years with prompt retrieval","No retention","Only for PEPs"],1,"Keep sufficient records for reconstruction."),
+      Q("High-level control to manage correspondent risk:",["Nested relationships unchecked","EDD for payable-through accounts and respondent AML assessment","Ignore respondent audits","Rely on marketing material"],1,"EDD and respondent assessment are essential.")
+    ],
+    "Egmont Group": [
+      Q("Egmont Group’s primary function is:",["Set binding sanctions","Enable FIU-to-FIU cooperation and secure information exchange","Publish BO registries","Run prosecutions"],1,"Egmont is an FIU network."),
+      Q("FIU membership benefits include:",["Direct arrests","Secure channels for intelligence sharing","Setting prudential capital levels","Issuing visas"],1,"Secure communication and cooperation."),
+      Q("Best practice when sharing via Egmont:",["Send raw bank statements publicly","Follow legal bases, minimise data, protect confidentiality","Always notify subjects","Post to intranet"],1,"Data protection and legal basis matter."),
+      Q("Egmont requests should be:",["Unauthorised verbal exchanges","Formally documented with case context and legal basis","Only via social media","Sent to bank staff directly"],1,"Follow formal channels and provide proper context.")
+    ],
+    "Wolfsberg Group": [
+      Q("Wolfsberg Correspondent Banking guidance calls for:",["Standard CDD only","EDD where PTAs/nested relationships exist","No KYCC","Ignoring respondent sanctions risk"],1,"EDD for higher-risk correspondent features."),
+      Q("Private banking principle about BO:",["Signers equal BO","Identify natural persons who own/control; verify SoW","Skip SoW","Rely on nominee statements"],1,"Ultimate beneficial owners and SoW."),
+      Q("Payment transparency expectation:",["Remove originator info to protect privacy","Maintain complete originator/beneficiary information","Send only first name","Defer to respondent"],1,"Payment transparency reduces risk."),
+      Q("When using intermediaries:",["Rely solely on them","Obtain comparable information as if direct onboarding where risk dictates","Skip ongoing monitoring","Let intermediary file STRs"],1,"Comparable info + monitoring as needed.")
+    ],
+    "FSRBs": [
+      Q("FSRBs are:",["Regional FATF-style bodies supporting implementation","National prosecutors","Private consortia","Vendor groups"],0,"FSRBs mirror FATF at regional level."),
+      Q("An example of an FSRB:",["Egmont","APG (Asia/Pacific Group on ML)","Basel Committee","Wolfsberg"],1,"APG, ESAAMLG, GIABA etc."),
+      Q("FSRB mutual evaluations primarily assess:",["Bank profits","Technical compliance and effectiveness","Tax policy","Card fraud only"],1,"Similar to FATF MERs."),
+      Q("Bank benefit from FSRB output:",["Ignore findings","Adjust RBA to address regional risks","Replace policies with vendor text","Stop correspondent relationships"],1,"Insights for risk assessment and controls.")
+    ],
+    "Other international bodies": [
+      Q("Which body sets prudential standards not limited to AML/CFT?",["Basel Committee","Egmont","Interpol","Wolfsberg"],0,"Basel is prudential with AML CDD guidance."),
+      Q("Which body coordinates police cooperation internationally (not standard-setting for AML)?",["Interpol","Basel","Wolfsberg","FATF"],0,"Interpol is police cooperation; AML standards are FATF.")
+    ]
+  },
+
+  "Legal & Regulatory Frameworks": {
+    "USA PATRIOT Act (extraterritorial reach)": [
+      Q("PATRIOT Act extraterritoriality commonly arises when:",["Foreign bank uses a U.S. correspondent account","Non-USD currency used abroad","EU bank merges","Cash deposits only"],0,"Use of a U.S. correspondent account can create U.S. jurisdiction."),
+      Q("Section 311 measures can:",["Designate primary money laundering concerns and impose special measures","Set EU sanctions","Grant visas","Create BO registers"],0,"Section 311 allows special measures."),
+      Q("Which is MOST accurate on subpoenas to foreign banks with U.S. correspondent accounts?",["No reach","May compel records related to that correspondent relationship","Only for U.S. subsidiaries","Only for criminal cases"],1,"Courts have upheld reach via correspondent accounts."),
+      Q("PATRIOT Act KYC requires:",["Uniform CDD only","Customer identification programme + risk-based CDD","KYC for PEPs only","Only sanctions checks"],1,"CIP + risk-based CDD."),
+      Q("Effect of USD clearing via U.S. bank:",["No AML implications","Creates potential U.S. nexus for enforcement","Removes sanctions risk","Blocks EU reach"],1,"Routing through U.S. system creates nexus."),
+      Q("USA extraterritorial reach often interacts with:",["FSRB audits only","OFAC sanctions and wire routing via U.S.","Casino loyalty programmes","Basel capital ratios"],1,"U.S. jurisdiction can extend via system routing."),
+      Q("Which is LEAST likely to trigger U.S. jurisdiction?",["SWIFT message passes a U.S. server","Transaction in local currency settled locally with no U.S. touchpoint","USD correspondent in New York","U.S. person employed by counterparty"],1,"No U.S. touchpoint reduces nexus."),
+      Q("Primary compliance response to U.S. extraterritorial risk:",["Ignore it","Document routing, assess OFAC/PATRIOT exposure, include in RBA","Only block USD","Close all cross-border"],1,"Manage via RBA and routing awareness.")
+    ],
+    "EU AML Directives": [
+      Q("4AMLD/5AMLD trend:",["Reduce transparency","Expand BO registers and risk-based CDD","Remove STR duties","Abolish PEPs"],1,"More transparency and RBA."),
+      Q("Access to BO registers under 5AMLD:",["Nobody","Obliged entities and, in many cases, broader access subject to conditions","Only tax authorities","Only auditors"],1,"Access expanded in many member states with conditions."),
+      Q("6AMLD impact:",["Narrows ML offences","Expands predicate offences and clarifies aiding/abetting liability","Removes corporate liability","Removes sanctions"],1,"Strengthens criminalisation and liability."),
+      Q("Trigger for EDD under EU directives:",["High-risk third countries list","Use of debit cards","Domestic wires","Branch location"],0,"EDD for high-risk third-country exposure."),
+      Q("Travel rule relevance in EU:",["Not applicable","Applies to funds and increasingly to crypto-asset transfers","Only to cards","Only to cheques"],1,"Funds and crypto transfers require originator/beneficiary information."),
+      Q("BO discrepancies reporting:",["Not required","Obliged entities may need to report inconsistencies to registries","Only to customers","Only internal"],1,"Registries quality control mechanism."),
+      Q("Politically exposed persons treatment:",["Ban all PEPs","Risk-based EDD and senior management approval for high-risk PEPs","Treat like any other","Only screen once"],1,"RBA with approvals.")
+    ],
+    "OFAC Sanctions": [
+      Q("OFAC blocking vs rejecting:",["Same","Blocking holds property; rejecting returns/halts without hold","Both release funds","Both require license"],1,"Different outcomes and obligations."),
+      Q("When to escalate a potential match:",["DOB/address/nationality align strongly","Only name partial and nothing else","Vendor says unknown","Never"],0,"Secondary identifiers matter."),
+      Q("License handling:",["Release on application","Keep blocked until license granted","Ignore licenses to counterparties","Replace blocking with monitoring"],1,"Maintain block until authorised."),
+      Q("Grey/black list response:",["No action","Adjust RBA and apply countermeasures/EDD","Close all accounts immediately","Only notify PR"],1,"Risk-based adjustments."),
+      Q("U.S. nexus exists when:",["U.S. person involved or routed via U.S. system","Only USD abroad","Any PEP","EU bank merger"],0,"U.S. persons/system routing."),
+      Q("Which is LEAST likely a sanctions red flag?",["Vague payment references","Multiple banks without reason","Complete and consistent party details","Sudden USD→non-USD shift"],2,"Transparency reduces risk."),
+      Q("Wire-stripping detection step:",["Compare pre/post message fields for removed identifiers","Ignore SWIFT","Disable logging","Rely on paper only"],0,"Look for removed fields."),
+      Q("Post-match documentation should include:",["Nothing","Evidence and rationale for decisions per policy","Only vendor email","Only verbal notes"],1,"Traceable decisions.")
+    ],
+    "Other jurisdictional requirements": [
+      Q("Correspondent due diligence often requires:",["KYCC assessment of respondents","Only KYC of signers","Skip sanctions risk","Marketing review"],0,"Assess respondent AML maturity (KYCC)."),
+      Q("Threshold reporting example outside U.S.:",["Exact same globally","Varies by jurisdiction; document local thresholds","None exists","Always $10,000"],1,"Local laws differ."),
+      Q("Cross-border data transfer for AML:",["Always prohibited","Requires legal basis, e.g., adequacy, SCCs or statutory gateways","No controls","Only via email"],1,"Ensure lawful basis for transfers."),
+      Q("Regulatory engagement approach:",["Ad hoc only","Proactive dialogue, timely remediation evidence, senior accountability","Wait for onsite visit","Press release first"],1,"Constructive supervision engagement.")
+    ]
+  },
+
+  "Operational Procedures": {
+    "CDD/EDD Implementation": [
+      Q("Best PEP control:",["Self-declaration only","Onboarding + periodic/event-driven screening","Only on wires","Only non-residents"],1,"PEPs require ongoing screening."),
+      Q("UBO verification:",["Self-certify only","Verify using reliable, independent sources where possible","Ignore for low risk","Post-onboarding only"],1,"Verify BO proportionate to risk."),
+      Q("Event-driven review strongest trigger:",["Email change","Adverse media linking director to corruption","Debit card request","Address move"],1,"Material adverse media → refresh."),
+      Q("EDD usually includes:",["Remove monitoring","Source of wealth and enhanced monitoring","Only ID re-check","Only block account"],1,"SoW + EDD monitoring."),
+      Q("Periodic review frequency determined by:",["Customer age","Manager preference","Risk rating","Product interest"],2,"Risk-based frequency."),
+      Q("Correspondent onboarding step:",["Skip respondent assessment","KYCC on AML controls incl. PTAs/nested relationships","Marketing approval only","Ignore sanctions"],1,"Assess respondent AML."),
+      Q("Trusts BO identification includes:",["Settlor, trustees, beneficiaries, protector (as applicable)","Auditor","Only trustee company","Bank officer"],0,"Identify relevant parties."),
+      Q("Control for nominees:",["Accept nominee statements","Identify natural persons with ultimate ownership/control","Ignore if listed","Only notarise"],1,"Find the natural persons behind nominees.")
+    ],
+    "SAR/STR Filing": [
+      Q("Top priority for STR:",["Fame of client","Manager vouching","No apparent lawful purpose + typology match","Low balance"],2,"Objective indicators drive STRs."),
+      Q("Narrative should avoid:",["Facts/timeline","Speculation","Transaction details","Deviation from expected"],1,"Avoid conjecture."),
+      Q("LE request for info:",["Provide verbally","Request legal process or verified written request","Notify subject","Decline always"],1,"Follow legal/policy requirements."),
+      Q("Tipping-off prohibition means:",["Inform the customer gently","Do not disclose STR considerations/filings","Share with colleagues broadly","Publish internally"],1,"Maintain confidentiality."),
+      Q("Backlog triage principle:",["Ignore aged alerts","Risk-based prioritisation and documentation","Random","Only by order received"],1,"RBA even for triage."),
+      Q("Board reporting about STRs should:",["Name subjects","Use aggregate metrics; avoid revealing STR existence to subjects","Publish details","Skip"],1,"Protect confidentiality."),
+      Q("Cash-intensive business with opaque BO:",["No SAR ever","Consider SAR after review of activity vs baseline and SoF/SoW gaps","Ignore if long-time client","Only ask RM"],1,"Evaluate and file if warranted."),
+      Q("Quality control for SARs includes:",["No review","Peer/second-line review and feedback to investigators","Only vendor QA","Delete drafts"],1,"Improve consistency/quality.")
+    ],
+    "Transaction Monitoring": [
+      Q("Model validation should include:",["Turn off QA","Independent testing with precision/recall metrics","Vendor brochure","User survey only"],1,"Objective validation."),
+      Q("Scenario tuning best practice:",["Set thresholds to zero","Periodic backtesting vs outcomes + change control","Never change","Only manual review"],1,"Tune with governance."),
+      Q("Alert dispositioning requires:",["Clear rationale and evidence","Only close quickly","Verbal reasoning","Skip documentation"],0,"Traceability."),
+      Q("Data quality issue first step:",["Ignore","Escalate and remediate source; document impact on monitoring","Delete data","Switch off systems"],1,"Fix at source and document."),
+      Q("Suppression lists usage:",["Block all alerts","Careful governance; avoid suppressing true positives","Never use","Use freely"],1,"Prevent masking risk."),
+      Q("Watchlist change management:",["No testing","Test in non-prod, measure FP/TP impact before prod","Push straight to prod","Only revert if user complains"],1,"Governed releases."),
+      Q("Unusual spike in foreign wires:",["Normal","Investigate patterns, counterparties, SoF; tune scenarios if needed","Ignore","Close accounts"],1,"Investigate then act."),
+      Q("Model drift risk:",["Static forever","Performance degrades as behaviours change; monitor and re-tune","Improves over time automatically","Only vendor issue"],1,"Monitor drift."),
+      Q("Link analysis benefit:",["None","Reveal hidden relationships across accounts/entities","Replace SARs","Only for marketing"],1,"Enhances detection.")
+    ],
+    "Record Keeping": [
+      Q("Baseline retention for AML records:",["Delete after filing","≥5 years and promptly retrievable","Only if LE asks","Only 30 days"],1,"Common international baseline."),
+      Q("Sanctions decision documentation:",["Not needed","Evidence + rationale per policy","Only vendor email","Oral note"],1,"Traceability."),
+      Q("CDD/EDD files should include:",["Self-cert only","KYC data, BO docs, SoF/SoW (as applicable), risk rating, review history","Only address","Only screenshots"],1,"Comprehensive records."),
+      Q("Audit trail for alert handling:",["Unnecessary","Maintain timestamps, actors, decisions","Only final result","Store in email"],1,"End-to-end trace."),
+      Q("Data retention conflicts (privacy vs AML):",["Delete all","Apply legal basis/exemptions for AML; document decisions","Ignore privacy","Export to vendor"],1,"Balance legal obligations."),
+      Q("Retrieval SLAs:",["Never defined","Define internal SLAs for regulator/LEA requests","Only ad hoc","Only vendor SLAs"],1,"Be able to respond promptly."),
+      Q("Secure storage principle:",["Open shares","Role-based access, encryption at rest/in transit","Only paper","Shared credentials"],1,"Security basics.")
+    ]
+  },
+
+  "Investigation & Law Enforcement": {
+    "Investigation methodologies": [
+      Q("Most objective starting point:",["Reputation of client","Baseline vs recent activity plus typology linkage","Manager’s opinion","Media rumours"],1,"Use data, not bias."),
+      Q("Case triage prioritises:",["First-in-first-out","Risk-based factors (amounts, jurisdictions, products)","Alphabetical","By RM seniority"],1,"Risk-based triage."),
+      Q("Network analysis helps you:",["Only count customers","Identify hidden links and flows","Replace manual review","Avoid documentation"],1,"Find relationships."),
+      Q("When interviews are needed:",["Never","Use structured questions; avoid tipping-off; coordinate with MLRO","Call subject directly","Email all staff"],1,"Plan and protect confidentiality."),
+      Q("Quality of findings report:",["Speculative","Facts, chronology, supporting evidence and linkage to typologies","Only screenshots","One-liner"],1,"Clear, evidence-based reports."),
+      Q("Asset tracing step:",["Ignore third-party flows","Map entities, accounts, counterparties, and jurisdictions","Skip SWIFT data","Avoid legal review"],1,"Holistic tracing."),
+      Q("Use of external data:",["Always prohibited","Use OSINT/adverse media within policy and legal boundaries","Only paid sources","Only social media"],1,"Follow policy and law."),
+      Q("Case closure best practice:",["No lessons learned","Capture learnings to improve scenarios/training","Delete all docs","Only notify RM"],1,"Feedback loop.")
+    ],
+    "Law enforcement cooperation": [
+      Q("Receiving a production order:",["Ignore","Comply per legal requirements, log scope/times, protect confidentiality","Call subject","Send all data ad hoc"],1,"Controlled, legal compliance."),
+      Q("FIU feedback is useful to:",["Tip off customers","Improve detection scenarios and training","Marketing only","Ignore"],1,"Use to refine programme."),
+      Q("International coordination channel:",["Egmont FIU-to-FIU and MLATs","Email subject","Public posts","Vendor portal"],0,"Legal channels only."),
+      Q("When LE requests non-disclosure:",["Tell RM anyway","Respect legal gag orders and internal need-to-know only","Publish internally","Ask social media"],1,"Control information flow."),
+      Q("Joint operations risk:",["None","Document roles, protect chain of custody, maintain independence of compliance","Share all credentials","Skip approvals"],1,"Governance and evidence control.")
+    ],
+    "Asset recovery": [
+      Q("First step for asset freezing:",["Ask subject for consent","Identify legal basis (court order/authority) and ensure systems can hold assets","Wire funds away","Notify press"],1,"Follow legal basis and systems readiness."),
+      Q("Cross-border asset recovery requires:",["Local decree only","International cooperation frameworks and recognition","No docs","Vendor approval"],1,"Legal recognition mechanisms."),
+      Q("Proceeds of crime identification:",["Only cash","Includes all value derived from criminal activity (funds, property, benefits)","Only securities","Only real estate"],1,"Broad definition.")
+    ],
+    "Information sharing protocols": [
+      Q("Information sharing between banks:",["Always illegal","Possible under frameworks like 314(b) (US) or local equivalents; ensure legal basis","Only with customer consent","Post to forum"],1,"Use lawful channels."),
+      Q("Internal sharing for investigations should:",["Be unrestricted","Follow need-to-know, role-based access, and logging","Include all staff","Skip logging"],1,"Control access.")
+    ]
+  },
+
+  "Technology & Systems": {
+    "Monitoring systems": [
+      Q("Best practice before pushing new scenarios to prod:",["Skip testing","Test in non-prod, measure FP/TP impact","Only UI test","Rely on vendor claim"],1,"Evaluate performance and risk."),
+      Q("Alert quality improvement:",["Suppress everything","Tuning thresholds and adding quality signals with governance","Only increase thresholds","Only decrease thresholds"],1,"Balanced tuning + governance."),
+      Q("Real-time screening risk:",["None","Latency and false positives must be governed; fallback procedures","Always perfect","No documentation required"],1,"Operational risks must be managed."),
+      Q("Model ownership requires:",["No RACI","Clear ownership, change control, periodic validation","Only vendor","Only IT"],1,"Governance around models.")
+    ],
+    "Data analytics": [
+      Q("Which metric pair is most helpful for model evaluation?",["Look & feel","Precision and recall","Font size","User likes"],1,"Measure both over time."),
+      Q("Feature engineering in AML:",["Irrelevant","Design signals (velocity, network features) to capture typologies","Only vendor","Only manual"],1,"Stronger signals → better detection.")
+    ],
+    "RegTech solutions": [
+      Q("Key due diligence when adopting RegTech:",["None","Assess explainability, data protection, security, and validation approach","Only UI","Only price"],1,"Evaluate controls and evidence."),
+      Q("Cloud deployments should:",["Skip controls","Include encryption, IAM, logging, region controls, and resilience","Only UI testing","No audits"],1,"Security and compliance by design.")
+    ]
+  },
+
+  "AI and Cryptocurrency": {
+    "AI/Crypto combined": [
+      Q("Applying AI to monitoring requires:",["Ignore bias","Governance, validation, explainability, and fair treatment controls","Only accuracy","No documentation"],1,"AI must be governed like other models."),
+      Q("Crypto travel rule implication:",["No originator info","Requires originator/beneficiary info transmission between VASPs","Only cash applies","Ignore sanctions"],1,"VASPs share originator/beneficiary data."),
+      Q("On-chain analytics help to:",["Replace KYC","Assess address risk, trace flows, identify sanctions exposure","Only price coins","Only mining"],1,"Compliments KYC and monitoring."),
+      Q("Sanctions screening for crypto should:",["Ignore addresses","Include address lists and analytics for exposure","Only names","Only fiat"],1,"Addresses and related entities matter."),
+      Q("AI false positives handling:",["Ignore","Monitor precision, triage rules, analyst feedback loops","Only count alerts","Delete data"],1,"Performance management reduces waste.")
+    ]
+  }
+};
+
+// ======= Exam state =======
+let exam = {
+  questions: [], // [{q, options, a, exp, cat, sub}]
+  idx: 0,
+  answers: [], // indices or null
+  marked: new Set(),
+  startTs: null,
+  timerId: null,
+  durationSec: 210*60 // 3h30m
+};
+
+// ======= Utils =======
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;}
+function sample(arr, n, allowReuse=false){
+  if(n<=arr.length){ return shuffle(arr.slice()).slice(0,n); }
+  if(!allowReuse){ return shuffle(arr.slice()); }
+  // allow rare reuse to hit exact weights
+  const out = shuffle(arr.slice());
+  while(out.length<n){ out.push(arr[Math.floor(Math.random()*arr.length)]); }
+  return out.slice(0,n);
+}
+
+// Build exam with proportional weights based on desired total
+function buildExam(totalDesired, allowReuse){
+  // Compute scaling factor from base 125
+  const baseTotal = 125;
+  const scale = totalDesired / baseTotal;
+  const out = [];
+  Object.entries(TARGET).forEach(([cat, cfg])=>{
+    const catTotal = Math.max(1, Math.round(cfg.total * scale));
+    const subs = cfg.subs;
+    // normalise subs to match catTotal
+    const subEntries = Object.entries(subs).map(([sub, n])=>[sub, Math.max(1, Math.round(n*scale))]);
+    let wanted = subEntries.reduce((s,[_s,n])=>s+n,0);
+    // adjust by diff
+    let diff = catTotal - wanted;
+    for(let i=0; diff!==0 && i<subEntries.length; i++){
+      subEntries[i][1] += (diff>0?1:-1);
+      diff += (diff>0?-1:+1);
+    }
+    // sample from bank
+    subEntries.forEach(([sub, n])=>{
+      const pool = BANK[cat][sub];
+      const picked = sample(pool, n, allowReuse).map(q=>({...q, cat, sub}));
+      out.push(...picked);
+    });
+  });
+  return shuffle(out);
+}
+
+// ======= DOM =======
+const els = {
+  startBtn: document.getElementById('startBtn'),
+  totalQ: document.getElementById('totalQ'),
+  reuse: document.getElementById('reuse'),
+  status: document.getElementById('status'),
+  answeredMeta: document.getElementById('answeredMeta'),
+  progressBar: document.getElementById('progressBar'),
+  examPanel: document.getElementById('examPanel'),
+  qContainer: document.getElementById('qContainer'),
+  prevBtn: document.getElementById('prevBtn'),
+  nextBtn: document.getElementById('nextBtn'),
+  reviewBtn: document.getElementById('reviewBtn'),
+  gridBtn: document.getElementById('gridBtn'),
+  finishBtn: document.getElementById('finishBtn'),
+  grid: document.getElementById('grid'),
+  resultPanel: document.getElementById('resultPanel'),
+  scoreline: document.getElementById('scoreline'),
+  review: document.getElementById('review'),
+  qIndex: document.getElementById('qIndex'),
+  qTotal: document.getElementById('qTotal'),
+  footerCat: document.getElementById('footerCat'),
+  timer: document.getElementById('timer')
+};
+
+function startExam(){
+  const totalDesired = parseInt(els.totalQ.value,10) || 125;
+  const allowReuse = els.reuse.value==='yes';
+  exam.questions = buildExam(totalDesired, allowReuse);
+  exam.idx = 0;
+  exam.answers = Array(exam.questions.length).fill(null);
+  exam.marked = new Set();
+  els.qTotal.textContent = exam.questions.length;
+  els.examPanel.style.display = '';
+  els.resultPanel.style.display = 'none';
+  updateStatus();
+  renderQ();
+  startTimer();
+  buildGrid();
+}
+
+function renderQ(){
+  const q = exam.questions[exam.idx];
+  els.qIndex.textContent = exam.idx+1;
+  els.footerCat.textContent = `${q.cat} › ${q.sub}`;
+  const answeredCount = exam.answers.filter(a=>a!==null).length;
+  els.progressBar.style.width = Math.round(answeredCount / exam.questions.length * 100)+'%';
+  els.answeredMeta.textContent = `Answered: ${answeredCount}`;
+  const selected = exam.answers[exam.idx];
+  els.qContainer.innerHTML = `
+    <div class="question">
+      <div class="qhead">${q.q}</div>
+      <div class="qmeta">${q.cat} • ${q.sub}</div>
+      <div class="answers">
+        ${q.options.map((o,i)=>`
+          <div class="ans ${selected===i?'selected':''}" data-i="${i}"><strong>${String.fromCharCode(65+i)}.</strong> ${o}</div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  [...els.qContainer.querySelectorAll('.ans')].forEach(el=>el.addEventListener('click', onAnswer));
+}
+
+function onAnswer(e){
+  const i = parseInt(e.currentTarget.dataset.i,10);
+  exam.answers[exam.idx] = i;
+  renderQ();
+  updateStatus();
+}
+
+function nav(delta){
+  const n = exam.idx + delta;
+  if(n<0 || n>=exam.questions.length) return;
+  exam.idx = n;
+  renderQ();
+}
+
+function markReview(){
+  if(exam.marked.has(exam.idx)) exam.marked.delete(exam.idx); else exam.marked.add(exam.idx);
+  buildGrid();
+}
+
+function buildGrid(){
+  let html = '<div class="row">';
+  for(let i=0;i<exam.questions.length;i++){
+    const ans = exam.answers[i];
+    const mark = exam.marked.has(i)?' 🔖':'';
+    html += `<button class="${ans===null?'ghost':''}" onclick="jump(${i})">${i+1}${mark}</button>`;
+  }
+  html += '</div>';
+  els.grid.innerHTML = html;
+}
+function jump(i){ exam.idx=i; renderQ(); }
+
+function finish(){
+  stopTimer();
+  // grade
+  let correct=0;
+  const rows = [];
+  exam.questions.forEach((q,i)=>{
+    const ans = exam.answers[i];
+    const ok = (ans===q.a);
+    if(ok) correct++;
+    const ansText = ans===null?'<em>no answer</em>':`${String.fromCharCode(65+ans)}. ${q.options[ans]}`;
+    rows.push(`
+      <div class="card">
+        <div><strong>Q${i+1} • ${q.cat} › ${q.sub}</strong></div>
+        <div>${q.q}</div>
+        <div class="${ok?'correct':'wrong'}">Your answer: ${ansText}</div>
+        <div>Correct: <strong>${String.fromCharCode(65+q.a)}. ${q.options[q.a]}</strong></div>
+        <div class="small"><em>Why:</em> ${q.exp}</div>
+      </div>
+    `);
+  });
+  const pct = Math.round((correct/exam.questions.length)*100);
+  const badge = pct>=80?'ok':(pct>=65?'warn':'err');
+  els.scoreline.innerHTML = `<p><span class="badge ${badge}">Score ${pct}%</span> — Correct ${correct}/${exam.questions.length}</p>`;
+  els.review.innerHTML = rows.join('');
+  els.resultPanel.style.display = '';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function updateStatus(){
+  const unanswered = exam.answers.filter(a=>a===null).length;
+  els.status.textContent = `${unanswered} unanswered • ${exam.marked.size} marked`;
+}
+
+function startTimer(){
+  exam.startTs = Date.now();
+  renderTimer();
+  exam.timerId = setInterval(renderTimer, 1000);
+}
+function stopTimer(){ if(exam.timerId){ clearInterval(exam.timerId); exam.timerId=null; } }
+function renderTimer(){
+  const elapsed = Math.floor((Date.now()-exam.startTs)/1000);
+  const remain = Math.max(0, exam.durationSec - elapsed);
+  const hh = String(Math.floor(remain/3600)).padStart(2,'0');
+  const mm = String(Math.floor((remain%3600)/60)).padStart(2,'0');
+  const ss = String(remain%60).padStart(2,'0');
+  els.timer.textContent = `⏱ ${hh}:${mm}:${ss}`;
+  if(remain<=1800) els.timer.className='badge warn';
+  if(remain<=600) els.timer.className='badge err';
+  if(remain===0){ finish(); }
+}
+
+// Events
+els.startBtn.addEventListener('click', startExam);
+els.prevBtn.addEventListener('click', ()=>nav(-1));
+els.nextBtn.addEventListener('click', ()=>nav(1));
+els.reviewBtn.addEventListener('click', markReview);
+els.gridBtn.addEventListener('click', ()=>{ els.grid.style.display = els.grid.style.display==='none'?'':'none'; });
+els.finishBtn.addEventListener('click', finish);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e)=>{
+  if(['1','2','3','4'].includes(e.key)){
+    const idx = parseInt(e.key,10)-1;
+    const opt = document.querySelector('.answers .ans[data-i="'+idx+'"]');
+    if(opt) opt.click();
+  } else if(e.key.toLowerCase()==='n'){ nav(1); }
+  else if(e.key.toLowerCase()==='p'){ nav(-1); }
+});
+
+</script>
+</body>
+</html>

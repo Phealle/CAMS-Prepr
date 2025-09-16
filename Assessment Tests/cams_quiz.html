@@ -1,0 +1,931 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>CAMS Topic Drills — Interactive Practice</title>
+  <style>
+    :root{
+      --bg:#0f172a;
+      --panel:#111827;
+      --ink:#e5e7eb;
+      --muted:#9ca3af;
+      --accent:#22d3ee;
+      --correct:#10b981;
+      --wrong:#ef4444;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Inter,"Helvetica Neue",Arial;
+      background:linear-gradient(180deg,#0b1022,#0f172a 40%,#0b1022);
+      color:var(--ink);
+      line-height:1.55;
+    }
+    header{
+      padding:20px 16px;
+      background:rgba(255,255,255,0.03);
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      position:sticky;top:0;backdrop-filter: blur(10px);
+      z-index:5;
+    }
+    h1{margin:0;font-weight:800;letter-spacing:.3px;font-size:clamp(22px,3vw,30px)}
+    .sub{color:var(--muted);font-size:14px;margin-top:6px}
+    main{max-width:1000px;margin:24px auto;padding:0 16px 80px}
+    .panel{
+      background:rgba(255,255,255,0.04);
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:16px;
+      box-shadow:0 10px 30px rgba(0,0,0,.3);
+      overflow:hidden;
+    }
+    .controls, .quiz, .summary{padding:18px 18px 6px}
+    .row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+    select, button, input[type=number], .pill{
+      background:#0b1328;
+      color:var(--ink);
+      border:1px solid rgba(255,255,255,0.12);
+      padding:10px 12px;border-radius:12px;
+      font-size:14px;
+      outline:none;
+    }
+    button{cursor:pointer;transition: all .15s ease;background: #0d1a3a}
+    button:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(0,0,0,.35)}
+    button.primary{background:linear-gradient(135deg,#0ea5e9,#22d3ee);color:#06202b;border:0;font-weight:700}
+    button.ghost{background:transparent;border:1px dashed rgba(255,255,255,.2)}
+    .meta{display:flex;gap:10px;flex-wrap:wrap;margin-top:10px}
+    .pill{display:inline-flex;align-items:center;gap:6px}
+    .pill .dot{width:8px;height:8px;border-radius:100%}
+    .green{background:var(--correct)} .red{background:var(--wrong)} .blue{background:var(--accent)}
+    .question{
+      margin:18px;
+      padding:16px;
+      border:1px solid rgba(255,255,255,0.08);
+      border-radius:14px;
+      background:rgba(255,255,255,0.03);
+    }
+    .qhead{font-weight:700;margin-bottom:8px}
+    .qtopic{font-size:12px;color:var(--muted)}
+    .answers{display:grid;gap:8px;margin-top:10px}
+    .ans{
+      padding:12px 12px;
+      border-radius:12px;border:1px solid rgba(255,255,255,0.12);
+      background:#0b1328;
+      cursor:pointer;
+    }
+    .ans.correct{border-color:rgba(16,185,129,.7);background:rgba(16,185,129,.1)}
+    .ans.wrong{border-color:rgba(239,68,68,.7);background:rgba(239,68,68,.08)}
+    .explain{margin-top:10px;color:#d1fae5;background:rgba(16,185,129,.07);border-left:3px solid var(--correct);padding:10px;border-radius:10px}
+    .explain.wrong{color:#fee2e2;background:rgba(239,68,68,.07);border-left-color:var(--wrong)}
+    .footer{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:16px;border-top:1px solid rgba(255,255,255,.08);
+      position:sticky;bottom:0;background:rgba(10,15,30,.9);backdrop-filter: blur(8px)
+    }
+    .progress{height:10px;background:#1f2937;border-radius:999px;overflow:hidden}
+    .bar{height:100%;background:linear-gradient(90deg,#22d3ee,#0ea5e9);width:0%}
+    .hidden{display:none}
+    .small{font-size:12px;color:var(--muted)}
+    .tag{font-size:11px;color:#93c5fd;background:#0b1d3a;border:1px solid rgba(59,130,246,.4);padding:4px 8px;border-radius:999px;margin-left:6px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    @media(max-width:800px){.grid{grid-template-columns:1fr}}
+    .badge{padding:6px 10px;border-radius:999px;font-size:12px}
+    .badge.ok{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.5)}
+    .badge.warn{background:rgba(234,179,8,.15);border:1px solid rgba(234,179,8,.5)}
+    .badge.err{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.5)}
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+         background:#0b1328;border:1px solid rgba(255,255,255,.15);padding:2px 6px;border-radius:6px;color:#a7f3d0}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>CAMS Topic Drills — Interactive Practice</h1>
+    <div class="sub">Short, focused quizzes by topic. Instant feedback + explanations. Built for 2‑hour/day prep.</div>
+  </header>
+
+  <main>
+    <section class="panel controls">
+      <div class="row">
+        <div class="grid">
+          <div>
+            <label>Choose Topic</label><br/>
+            <select id="topicSelect"></select>
+          </div>
+          <div>
+            <label>Questions per run</label><br/>
+            <input id="countInput" type="number" min="3" max="25" value="10" />
+          </div>
+        </div>
+        <div class="row" style="margin-top:8px">
+          <button id="startBtn" class="primary">Start Drill</button>
+          <button id="reviewBtn" class="ghost">Review Incorrect Only</button>
+          <span class="small">Tip: Use <span class="kbd">N</span> next, <span class="kbd">P</span> previous, <span class="kbd">1‑4</span> to answer</span>
+        </div>
+        <div class="meta">
+          <span class="pill"><span class="dot blue"></span><span id="status">Idle</span></span>
+          <span class="pill"><span class="dot green"></span><span id="scoreMeta">Score: 0/0</span></span>
+          <span class="pill"><span class="dot red"></span><span id="wrongMeta">Wrong: 0</span></span>
+        </div>
+        <div class="row" style="width:100%;margin-top:10px">
+          <div class="progress" style="flex:1"><div class="bar" id="progressBar"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel quiz hidden" id="quizPanel"></section>
+
+    <section class="panel summary hidden" id="summaryPanel">
+      <h2>Session Summary</h2>
+      <div id="summaryStats"></div>
+      <div id="weakAreas"></div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="retryBtn">Retry Same Topic</button>
+        <button class="ghost" id="resetBtn">Back to Menu</button>
+      </div>
+      <p class="small">Your incorrect answers are saved locally in your browser and can be drilled via “Review Incorrect Only”.</p>
+    </section>
+  </main>
+
+  <div class="footer">
+    <div>Question <span id="qIndex">0</span>/<span id="qTotal">0</span></div>
+    <div id="footerTopic" class="small"></div>
+    <div id="timer" class="badge ok">⏱ 00:00</div>
+  </div>
+
+<script>
+// ======= Data: Topic-based question bank (original questions, exam-style, with explanations) =======
+const BANK = [
+  {
+    topic:"FATF / Basel / Wolfsberg (Foundations)",
+    tag:"Foundations",
+    items:[
+      {
+        q:"Which statement best reflects FATF's role for CAMS purposes?",
+        options:[
+          "It supervises banks globally and imposes fines directly",
+          "It issues international standards (40 Recommendations) adopted via national law",
+          "It prosecutes cross-border crimes jointly with Europol",
+          "It maintains beneficial ownership registers for all members"
+        ],
+        a:1,
+        exp:"FATF sets standards (40 Recommendations) which countries implement via domestic legislation; FATF itself is not a supervisor or prosecutor."
+      },
+      {
+        q:"Which is a core element of the risk-based approach under the Basel CDD paper?",
+        options:[
+          "Apply identical CDD to all customers to ensure fairness",
+          "Allocate compliance resources proportionally to the level of risk",
+          "Rely solely on automated screening to reduce manual work",
+          "Perform enhanced due diligence only at onboarding"
+        ],
+        a:1,
+        exp:"Basel emphasises proportionality — higher risk = deeper due diligence and monitoring; it is ongoing, not only at onboarding."
+      },
+      {
+        q:"According to Wolfsberg Principles for Correspondent Banking, which scenario demands additional due diligence?",
+        options:[
+          "Respondent bank is in an FATF member country serving mostly local retail customers",
+          "Respondent bank provides payable-through accounts to foreign clients",
+          "Respondent bank is fully owned by a listed company",
+          "Respondent bank has no cross-border activity"
+        ],
+        a:1,
+        exp:"Payable-through accounts materially increase transparency and monitoring challenges, requiring enhanced due diligence."
+      },
+      {
+        q:"Egmont Group’s primary purpose is to:",
+        options:[
+          "Set binding sanctions lists for banks",
+          "Operate a global AML exam simulator tool",
+          "Facilitate cooperation and information exchange among FIUs",
+          "Coordinate criminal prosecutions across jurisdictions"
+        ],
+        a:2,
+        exp:"Egmont is a forum to strengthen FIUs and their information sharing; it has no prosecutorial power."
+      },
+      {
+        q:"Which is TRUE about the 3 stages of money laundering?",
+        options:[
+          "Layering precedes placement and aims to introduce funds into the financial system",
+          "Placement involves integration into the legitimate economy via assets",
+          "Integration is where illicit funds re-enter the economy appearing legitimate",
+          "There are only two stages: placement and layering"
+        ],
+        a:2,
+        exp:"Integration is the third stage where funds appear legitimate; typical indicators include luxury purchases and investments."
+      },
+      {
+        q:"A key Basel KYC standard is that banks should:",
+        options:[
+          "Centralise all onboarding at the head office only",
+          "Document customer acceptance policies approved by the Board",
+          "Decline all PEP relationships as a matter of policy",
+          "Retain KYC records indefinitely"
+        ],
+        a:1,
+        exp:"Basel promotes formal customer acceptance policies, risk-based onboarding, and ongoing due diligence; categorical bans are not required."
+      },
+      {
+        q:"Which best describes Wolfsberg’s stance on private banking intermediaries?",
+        options:[
+          "Banks may rely solely on the intermediary to perform CDD on underlying clients",
+          "Banks must obtain information equivalent to direct onboarding of the underlying clients when risk dictates",
+          "Intermediaries eliminate the need for beneficial ownership checks",
+          "Intermediaries are responsible for filing STRs on behalf of the bank"
+        ],
+        a:1,
+        exp:"Where intermediaries are involved, the bank should obtain comparable information to direct onboarding depending on risk."
+      },
+      {
+        q:"Which global body issues lists of jurisdictions with strategic AML/CFT deficiencies and ongoing updates?",
+        options:[
+          "FATF",
+          "Wolfsberg Group",
+          "Basel Committee",
+          "Interpol"
+        ],
+        a:0,
+        exp:"FATF issues public statements (e.g., grey/black lists) typically three times per year."
+      }
+    ]
+  },
+  {
+    topic:"CDD / KYC / PEPs / Beneficial Ownership",
+    tag:"CDD/KYC",
+    items:[
+      {
+        q:"Most appropriate control to identify PEPs according to best practice:",
+        options:[
+          "Rely on self-declaration at onboarding",
+          "Screen at onboarding and periodically thereafter with risk triggers",
+          "Check only when a customer sends an international wire",
+          "Screen only if the customer is a non-resident"
+        ],
+        a:1,
+        exp:"PEP screening is both at onboarding and ongoing (periodic + event-driven)."
+      },
+      {
+        q:"A corporate customer provides only nominee shareholders. What is the best next step?",
+        options:[
+          "Proceed since nominees are acceptable owners",
+          "Obtain and verify the natural persons who ultimately own/control the entity",
+          "Ask for annual financial statements only",
+          "Open the account and review later"
+        ],
+        a:1,
+        exp:"Identify and verify ultimate beneficial owners (natural persons) — key to BO transparency."
+      },
+      {
+        q:"Which change most strongly triggers an event-driven review?",
+        options:[
+          "New email address",
+          "Customer moved apartments nearby",
+          "Adverse media linking the director to corruption",
+          "Infrequent small balance fluctuations"
+        ],
+        a:2,
+        exp:"Material adverse media is a classic trigger for refreshed CDD and potentially EDD."
+      },
+      {
+        q:"Which customer is highest risk?",
+        options:[
+          "Local teacher opening a savings account",
+          "Domestic charity operating only in low-risk sectors",
+          "Cash-intensive business with opaque ownership structure",
+          "Publicly listed company with verified owners"
+        ],
+        a:2,
+        exp:"Cash-intensive + opaque ownership elevates inherent risk."
+      },
+      {
+        q:"For trusts, which party is NOT typically identified as part of BO?",
+        options:[
+          "Settlors",
+          "Trustees",
+          "Protectors (where applicable)",
+          "External auditor of the trustee company"
+        ],
+        a:3,
+        exp:"Settlors, trustees, protectors (and beneficiaries) are considered; auditors are not BO parties."
+      },
+      {
+        q:"Enhanced due diligence is most warranted when:",
+        options:[
+          "The customer declines to state source of funds for large incoming wires",
+          "The customer is a domestic salaried employee",
+          "The product is a basic savings account with low activity",
+          "The customer has held the account for 10+ years"
+        ],
+        a:0,
+        exp:"Refusal to provide SoF/SoW is a high-risk indicator warranting EDD."
+      },
+      {
+        q:"Periodic review frequency should be primarily determined by:",
+        options:[
+          "The customer's age",
+          "The branch manager's experience",
+          "The customer's risk rating",
+          "The product interest rate"
+        ],
+        a:2,
+        exp:"Risk-based approach: higher risk → more frequent/ deeper reviews."
+      },
+      {
+        q:"Evidence of beneficial ownership should be:",
+        options:[
+          "Self-certified only",
+          "Verified using reliable, independent sources where available",
+          "Ignored for low-risk domestic entities",
+          "Collected only post-onboarding"
+        ],
+        a:1,
+        exp:"BO information should be verified to the extent risk-appropriate."
+      }
+    ]
+  },
+  {
+    topic:"Sanctions / OFAC / Screening",
+    tag:"Sanctions",
+    items:[
+      {
+        q:"U.S. sanctions jurisdiction generally applies when a transaction:",
+        options:[
+          "Is processed by a U.S. person or passes through the U.S. financial system",
+          "Involves any USD currency anywhere in the world",
+          "Is over $100,000 equivalent",
+          "Involves a PEP from a foreign country"
+        ],
+        a:0,
+        exp:"OFAC jurisdiction includes U.S. persons and transactions that transit the U.S. financial system."
+      },
+      {
+        q:"Best practice for list screening cadence is to:",
+        options:[
+          "Screen only at onboarding",
+          "Screen onboarding and batch re-screen on list updates or at least daily",
+          "Screen quarterly",
+          "Screen when customers request wires"
+        ],
+        a:1,
+        exp:"Prompt re-screening on list updates (or daily batches) + onboarding screening is typical best practice."
+      },
+      {
+        q:"Which response aligns with a law enforcement written request to keep a suspect’s account open?",
+        options:[
+          "Decline and close immediately to reduce risk",
+          "Agree, but ensure regulatory obligations (monitoring/SARs) can still be met",
+          "Only agree if the customer is notified",
+          "Proceed only after board approval"
+        ],
+        a:1,
+        exp:"Banks can cooperate with LE requests but must still meet AML/sanctions obligations."
+      },
+      {
+        q:"Which presents a higher escalation for sanctions risk?",
+        options:[
+          "False positive match resolved via additional identifiers",
+          "Partial name match with strong secondary identifiers (DOB, address) aligning",
+          "Customer name totally different to list entry",
+          "Vendor in a low-risk jurisdiction with no list match"
+        ],
+        a:1,
+        exp:"Strong secondary matches warrant escalation and potential blocking/reporting per policy."
+      },
+      {
+        q:"Blocking is generally required when:",
+        options:[
+          "A transaction has any remote connection to a sanctioned country",
+          "A transaction is by/for/on behalf of a blocked person or entity",
+          "The customer refuses to provide BO charts",
+          "A transaction is cash-intensive"
+        ],
+        a:1,
+        exp:"OFAC blocking is tied to property/interest of blocked persons/entities."
+      },
+      {
+        q:"Which control strengthens screening quality?",
+        options:[
+          "Disabling fuzzy matching",
+          "Using multiple list sources and maintaining robust tuning & QA",
+          "Relying only on free public lists",
+          "Ignoring alias/AKA fields"
+        ],
+        a:1,
+        exp:"Quality screening combines reliable lists, tuned matching, QA and periodic model validation."
+      },
+      {
+        q:"Which is the LEAST likely sanctions red flag?",
+        options:[
+          "Routing payments through multiple banks without reason",
+          "Use of vague payment references / code words",
+          "Consistent full originator and beneficiary details",
+          "Sudden switch from USD to non‑USD with same counterparties"
+        ],
+        a:2,
+        exp:"Complete and consistent details reduce risk; others may indicate evasion tactics."
+      },
+      {
+        q:"For OFAC licensing, a bank should:",
+        options:[
+          "Release blocked funds once a license is applied for",
+          "Maintain the block until a specific license is granted",
+          "Ignore licenses issued to counterparties",
+          "Replace blocking with monitoring"
+        ],
+        a:1,
+        exp:"Blocked property remains blocked unless/until OFAC issues a license authorising release."
+      }
+    ]
+  },
+  {
+    topic:"Suspicious Activity / STRs / Internal Investigation",
+    tag:"STR/Investigations",
+    items:[
+      {
+        q:"Which factor most increases the priority of filing an STR?",
+        options:[
+          "Customer is well-known in the community",
+          "Branch manager vouches for the customer",
+          "Activity lacks apparent lawful purpose and fits a known typology",
+          "Customer’s account is low balance"
+        ],
+        a:2,
+        exp:"Absent lawful purpose + typology alignment is a key STR criterion; reputational familiarity is irrelevant."
+      },
+      {
+        q:"What should NOT be included in the STR narrative?",
+        options:[
+          "Objective facts and timelines",
+          "Names of related accounts",
+          "Speculation without factual basis",
+          "Transaction details"
+        ],
+        a:2,
+        exp:"Avoid conjecture; stick to facts, context, and how the activity deviates from expected behaviour."
+      },
+      {
+        q:"An employee advises a client how to avoid STR filing. Appropriate response?",
+        options:[
+          "Ignore — relationship managers know best",
+          "Report to compliance per escalation policy",
+          "Call media",
+          "Tell the customer to choose another bank"
+        ],
+        a:1,
+        exp:"Tipping off and evasion guidance are severe violations → escalate internally immediately."
+      },
+      {
+        q:"Audit finds alerts wrongly cleared as 'not suspicious'. Auditor’s role in correction phase:",
+        options:[
+          "Direct remediation",
+          "Develop procedures for alert clearing",
+          "Provide team training",
+          "Validate remediation after management resolves"
+        ],
+        a:3,
+        exp:"Independence: auditors validate; management remediates."
+      },
+      {
+        q:"Law enforcement calls requesting customer info. Best practice:",
+        options:[
+          "Provide information verbally immediately",
+          "Request formal legal process or verified written request per policy",
+          "Notify the customer to obtain consent",
+          "Decline all requests from LE"
+        ],
+        a:1,
+        exp:"Verify authority and follow legal/ policy requirements for disclosures."
+      },
+      {
+        q:"Which is MOST suspicious at a casino?",
+        options:[
+          "Buying chips, playing briefly, redeeming for check",
+          "Buying chips, playing all day, losing cash",
+          "Tourist buying small souvenir chips",
+          "Redeeming loyalty points for meals"
+        ],
+        a:0,
+        exp:"Minimal play + redemption for negotiable instruments is a classic red flag."
+      },
+      {
+        q:"Anonymous hotline tip alleges laundering. Which data points matter most initially?",
+        options:[
+          "Length of relationship and cookies brought to staff",
+          "Recent activity patterns vs. historical baseline and typology match",
+          "Customer’s profession only",
+          "Manager’s opinion"
+        ],
+        a:1,
+        exp:"Use objective behavioural data and typology alignment; avoid bias and irrelevant familiarity."
+      },
+      {
+        q:"Reporting chain for high-risk PEP with adverse media and suspect wires should escalate to:",
+        options:[
+          "Line-of-business executive only",
+          "Board immediately",
+          "AML Officer/MLRO per policy",
+          "FATF Secretariat"
+        ],
+        a:2,
+        exp:"Escalate to AML Officer/MLRO; board notification may follow via governance channels."
+      }
+    ]
+  },
+  {
+    topic:"Trade-Based Money Laundering / Sectors",
+    tag:"TBML & Sectors",
+    items:[
+      {
+        q:"Which pair is most indicative of TBML risk?",
+        options:[
+          "Consistent pricing and shipping terms with minor variances",
+          "Significant mismatch between invoice description and bill of lading",
+          "Domestic shipments with local payments",
+          "Use of common carriers for low-value goods"
+        ],
+        a:1,
+        exp:"Inconsistencies between documents are hallmark TBML indicators."
+      },
+      {
+        q:"Which sector red flag is strongest?",
+        options:[
+          "NPO operating only domestically with transparent reporting",
+          "Real estate purchase via shell company with unknown BO",
+          "Publicly listed manufacturer paying dividends",
+          "Insurance customer paying via bank transfer"
+        ],
+        a:1,
+        exp:"Shells and opaque BO in real estate are high-risk."
+      },
+      {
+        q:"Which behaviour at MSBs suggests structuring?",
+        options:[
+          "Multiple transfers, each just under reporting thresholds to the same beneficiary",
+          "One large transparent transfer with full KYC",
+          "Infrequent remittances to family",
+          "Transfers with detailed payment purpose"
+        ],
+        a:0,
+        exp:"Repeated near-threshold transfers to same parties indicate structuring/smurfing."
+      },
+      {
+        q:"Precious metals risk is elevated because:",
+        options:[
+          "Their value is low and bulky",
+          "They are high-value, compact, and easily convertible to cash",
+          "They cannot cross borders",
+          "They have no legitimate industrial uses"
+        ],
+        a:1,
+        exp:"High value density and liquidity create portability for illicit value transfer."
+      },
+      {
+        q:"Casinos: Which cash behaviour is MOST suspicious?",
+        options:[
+          "Purchasing chips, minimal play, redeem for cash or check",
+          "Purchasing chips, losing over long sessions",
+          "Buying meals with cash",
+          "Tipping dealers"
+        ],
+        a:0,
+        exp:"Classic placement/ layering indicator."
+      },
+      {
+        q:"NPO terrorist financing red flag:",
+        options:[
+          "Cash withdrawals unrelated to programme expenses in conflict-adjacent regions",
+          "Electronic payments to audited vendors",
+          "Transparent donor reporting",
+          "Domestic-only operations with local oversight"
+        ],
+        a:0,
+        exp:"Unexplained cash usage in high-risk areas is a strong TF indicator."
+      },
+      {
+        q:"Real estate ML risk increases when:",
+        options:[
+          "Mortgages are underwritten with verified income",
+          "Purchases are via complex offshore structures without clear SoF/Bo",
+          "Buyer is domestic salaried employee",
+          "Title insurance is used"
+        ],
+        a:1,
+        exp:"Opacity + complex structures + cash purchases/ wires elevate risk."
+      },
+      {
+        q:"Crowdfunding platform red flag:",
+        options:[
+          "Campaign starts and closes fully funded within very short period without clear purpose",
+          "Campaign has many small donors over months",
+          "Campaign provides detailed beneficiary info",
+          "Campaign fails to meet target"
+        ],
+        a:0,
+        exp:"Rapid full funding without transparency can indicate misuse for ML/TF."
+      }
+    ]
+  },
+  {
+    topic:"EU Directives / Global Updates / Crypto Basics",
+    tag:"EU & Updates",
+    items:[
+      {
+        q:"An EU trend reflected in 4AMLD/5AMLD is:",
+        options:[
+          "Reducing scope of BO transparency",
+          "Expanding beneficial ownership registers and CDD triggers",
+          "Removing PEP requirements",
+          "Abolishing STR obligations"
+        ],
+        a:1,
+        exp:"EU directives emphasise BO registries, risk-based CDD, and STRs; 5AMLD expanded access in many contexts."
+      },
+      {
+        q:"Crypto risk control most aligned to CAMS principles:",
+        options:[
+          "Treat all crypto as prohibited",
+          "Apply risk-based controls incl. blockchain analytics and SoF checks",
+          "Ignore travel rule requirements",
+          "Skip sanctions screening for on-chain addresses"
+        ],
+        a:1,
+        exp:"Risk-based, with analytics, SoF/SoW, sanctions address screening, and travel rule where applicable."
+      },
+      {
+        q:"Which update most impacts BO transparency globally?",
+        options:[
+          "Voluntary private registers maintained by banks",
+          "Public sector-led central registries of beneficial owners",
+          "Reliance on nominee declarations",
+          "Industry self-certification alone"
+        ],
+        a:1,
+        exp:"Government-led BO registries (where implemented) enhance transparency for obliged entities."
+      },
+      {
+        q:"Which factor is LEAST relevant when assessing crypto exchange AML risk?",
+        options:[
+          "Exchange licensing and jurisdiction",
+          "KYC/EDD programme and travel rule compliance",
+          "Blockchain analytics and sanctions controls",
+          "Website color scheme"
+        ],
+        a:3,
+        exp:"Aesthetics are irrelevant; governance and controls matter."
+      },
+      {
+        q:"Cross-border cooperation best practice:",
+        options:[
+          "Contact customer’s family for information",
+          "Use FIU-to-FIU channels and MLATs where applicable",
+          "Disclose STR filing to the subject for transparency",
+          "Share customer data without legal basis to speed up action"
+        ],
+        a:1,
+        exp:"FIU/Egmont channels and MLATs maintain legality and confidentiality."
+      },
+      {
+        q:"Which is TRUE about willful blindness?",
+        options:[
+          "It is a defence against AML violations",
+          "It can aggravate enforcement and penalty outcomes",
+          "It applies only to board members",
+          "It is irrelevant if no STR was filed"
+        ],
+        a:1,
+        exp:"Deliberate ignorance can increase penalties; a robust RBA and documentation mitigate exposure."
+      },
+      {
+        q:"Model validation for screening/monitoring systems should include:",
+        options:[
+          "Turning off QA to avoid bias",
+          "Independent testing, performance metrics (precision/recall), governance",
+          "Only vendor attestations",
+          "Annual user satisfaction survey"
+        ],
+        a:1,
+        exp:"Independent testing + measurable performance + governance = sound validation practice."
+      },
+      {
+        q:"Recordkeeping expectations typically require:",
+        options:[
+          "Keep STR support for at least 5 years and retrieve promptly upon request",
+          "Delete STR support after filing to reduce storage",
+          "Retain only if law enforcement asks",
+          "Rely on staff memory in interviews"
+        ],
+        a:0,
+        exp:"International standards generally expect ≥5 years retention and prompt production capability."
+      }
+    ]
+  }
+];
+
+// ======= State =======
+let session = {
+  topic:null,
+  questions:[],
+  idx:0,
+  correct:0,
+  wrong:0,
+  answers:[],
+  startTime:null,
+  timerId:null,
+  reviewMode:false
+};
+
+const els = {
+  topicSelect: document.getElementById('topicSelect'),
+  countInput: document.getElementById('countInput'),
+  startBtn: document.getElementById('startBtn'),
+  reviewBtn: document.getElementById('reviewBtn'),
+  quizPanel: document.getElementById('quizPanel'),
+  summaryPanel: document.getElementById('summaryPanel'),
+  status: document.getElementById('status'),
+  scoreMeta: document.getElementById('scoreMeta'),
+  wrongMeta: document.getElementById('wrongMeta'),
+  qIndex: document.getElementById('qIndex'),
+  qTotal: document.getElementById('qTotal'),
+  progressBar: document.getElementById('progressBar'),
+  retryBtn: document.getElementById('retryBtn'),
+  resetBtn: document.getElementById('resetBtn'),
+  summaryStats: document.getElementById('summaryStats'),
+  weakAreas: document.getElementById('weakAreas'),
+  footerTopic: document.getElementById('footerTopic'),
+  timer: document.getElementById('timer')
+};
+
+// Populate topics
+BANK.forEach((b,i)=>{
+  const opt = document.createElement('option');
+  opt.value = i;
+  opt.textContent = `${b.topic} — ${b.items.length} Q`;
+  els.topicSelect.appendChild(opt);
+});
+
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;}
+
+function startDrill(reviewOnly=false){
+  const tIndex = parseInt(els.topicSelect.value,10);
+  session.topic = BANK[tIndex];
+  const count = Math.min(parseInt(els.countInput.value,10)||10, session.topic.items.length);
+  let pool = session.topic.items.map((q,idx)=>({...q,_id:idx}));
+  if(reviewOnly){
+    const saved = JSON.parse(localStorage.getItem('cams_incorrect')||'[]').filter(x=>x.topic===session.topic.topic);
+    pool = pool.filter(q => saved.find(s => s.qid===q._id));
+    if(pool.length===0){ alert('No saved incorrect items for this topic yet. Run a normal drill first.'); return; }
+  }
+  session.questions = shuffle(pool).slice(0,count);
+  session.idx = 0;
+  session.correct = 0;
+  session.wrong = 0;
+  session.answers = [];
+  session.reviewMode = reviewOnly;
+  els.qTotal.textContent = session.questions.length;
+  els.footerTopic.textContent = session.topic.topic;
+  els.quizPanel.classList.remove('hidden');
+  els.summaryPanel.classList.add('hidden');
+  updateMeta('In progress');
+  renderQuestion();
+  startTimer();
+}
+
+function renderQuestion(){
+  const q = session.questions[session.idx];
+  els.qIndex.textContent = session.idx+1;
+  const pct = Math.round((session.idx/session.questions.length)*100);
+  els.progressBar.style.width = pct+'%';
+  els.quizPanel.innerHTML = `
+    <div class="question">
+      <div class="qhead">${q.q}</div>
+      <div class="qtopic">${session.topic.tag} • ${session.topic.topic}</div>
+      <div class="answers">
+        ${q.options.map((o,i)=>`
+          <div class="ans" data-i="${i}"><strong>${String.fromCharCode(65+i)}.</strong> ${o}</div>
+        `).join('')}
+      </div>
+      <div id="explain" class="explain hidden"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="ghost" id="prevBtn">Prev (P)</button>
+        <button class="primary" id="nextBtn">Next (N)</button>
+      </div>
+    </div>
+  `;
+  [...els.quizPanel.querySelectorAll('.ans')].forEach(el=>el.addEventListener('click',onAnswer));
+  document.getElementById('nextBtn').addEventListener('click', ()=>nav(1));
+  document.getElementById('prevBtn').addEventListener('click', ()=>nav(-1));
+}
+
+function onAnswer(e){
+  const choice = parseInt(e.currentTarget.dataset.i,10);
+  const q = session.questions[session.idx];
+  const answersEls = [...els.quizPanel.querySelectorAll('.ans')];
+  answersEls.forEach((el,i)=>{
+    if(i===q.a){ el.classList.add('correct'); }
+    if(i===choice && i!==q.a){ el.classList.add('wrong'); }
+    el.style.pointerEvents='none';
+  });
+  const correct = choice===q.a;
+  if(correct){ session.correct++; } else { session.wrong++; saveIncorrect(q); }
+  session.answers[session.idx] = {choice,correct,id:q._id};
+  showExplanation(correct,q);
+  updateMeta('Answered');
+}
+
+function saveIncorrect(q){
+  const key='cams_incorrect';
+  const arr = JSON.parse(localStorage.getItem(key)||'[]');
+  if(!arr.find(x=>x.topic===session.topic.topic && x.qid===q._id)){
+    arr.push({topic:session.topic.topic,qid:q._id,ts:Date.now()});
+    localStorage.setItem(key,JSON.stringify(arr));
+  }
+}
+
+function showExplanation(correct,q){
+  const ex = document.getElementById('explain');
+  ex.classList.remove('hidden');
+  ex.classList.toggle('wrong', !correct);
+  ex.innerHTML = (correct?'✅ Correct. ':'❌ Not quite. ') + q.exp;
+}
+
+function updateMeta(state){
+  els.status.textContent = state;
+  els.scoreMeta.textContent = `Score: ${session.correct}/${session.questions.length}`;
+  els.wrongMeta.textContent = `Wrong: ${session.wrong}`;
+}
+
+function nav(delta){
+  const newIdx = session.idx + delta;
+  if(newIdx<0 || newIdx>=session.questions.length){
+    if(newIdx>=session.questions.length){ endSession(); }
+    return;
+  }
+  session.idx = newIdx;
+  renderQuestion();
+}
+
+function endSession(){
+  stopTimer();
+  els.quizPanel.classList.add('hidden');
+  els.summaryPanel.classList.remove('hidden');
+  const pct = Math.round((session.correct/session.questions.length)*100);
+  const badge = pct>=80?'ok':(pct>=65?'warn':'err');
+  els.summaryStats.innerHTML = `
+    <p><span class="badge ${badge}">Score ${pct}%</span> — Correct ${session.correct} / ${session.questions.length}</p>
+  `;
+  // Weak areas by simple keyword extraction from explanations
+  const themes = {};
+  session.questions.forEach((q,i)=>{
+    if(!session.answers[i] || !session.answers[i].correct){
+      const words = q.exp.toLowerCase().split(/[^a-z]+/).filter(w=>w.length>3);
+      words.forEach(w=>themes[w]=(themes[w]||0)+1);
+    }
+  });
+  const sorted = Object.entries(themes).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  els.weakAreas.innerHTML = sorted.length?(
+    `<p>🔎 Suggested review themes: ${sorted.map(([w,c])=>`<span class="tag">${w}</span>`).join(' ')}</p>`
+  ):`<p>Great work — no clear weak themes detected.</p>`;
+  updateMeta('Completed');
+  els.progressBar.style.width='100%';
+}
+
+function startTimer(){
+  session.startTime = Date.now();
+  els.timer.className='badge ok';
+  session.timerId = setInterval(()=>{
+    const t = Math.floor((Date.now()-session.startTime)/1000);
+    const mm = String(Math.floor(t/60)).padStart(2,'0');
+    const ss = String(t%60).padStart(2,'0');
+    els.timer.textContent = `⏱ ${mm}:${ss}`;
+    if(t>900){ els.timer.className='badge warn'; }
+    if(t>1800){ els.timer.className='badge err'; }
+  }, 1000);
+}
+function stopTimer(){ if(session.timerId){ clearInterval(session.timerId); session.timerId=null; } }
+
+// Controls
+els.startBtn.addEventListener('click', ()=>startDrill(false));
+els.reviewBtn.addEventListener('click', ()=>startDrill(true));
+els.retryBtn.addEventListener('click', ()=>startDrill(false));
+els.resetBtn.addEventListener('click', ()=>{
+  els.quizPanel.classList.add('hidden');
+  els.summaryPanel.classList.add('hidden');
+  updateMeta('Idle');
+  els.progressBar.style.width='0%';
+  els.qIndex.textContent='0'; els.qTotal.textContent='0';
+  stopTimer();
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e)=>{
+  if(['1','2','3','4'].includes(e.key)){
+    const idx = parseInt(e.key,10)-1;
+    const opt = els.quizPanel.querySelector(`.ans[data-i="${idx}"]`);
+    if(opt){ opt.click(); }
+  } else if(e.key.toLowerCase()==='n'){ nav(1); }
+  else if(e.key.toLowerCase()==='p'){ nav(-1); }
+});
+</script>
+</body>
+</html>

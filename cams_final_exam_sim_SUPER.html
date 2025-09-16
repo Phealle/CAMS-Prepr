@@ -1,0 +1,598 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CAMS Final Exam Simulator — Weighted Distribution</title>
+<style>
+:root{
+  --bg:#0f172a; --panel:#0b1328; --ink:#e5e7eb; --muted:#9ca3af;
+  --accent:#38bdf8; --accent2:#22d3ee; --ok:#10b981; --warn:#eab308; --err:#ef4444;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter, ui-sans-serif, system-ui, Segoe UI, Roboto, Arial; background:linear-gradient(180deg,#0b1022,#0f172a 40%,#0b1022); color:var(--ink);}
+header{position:sticky;top:0;z-index:5; backdrop-filter: blur(10px); background:rgba(255,255,255,.03); border-bottom:1px solid rgba(255,255,255,.06); padding:16px}
+h1{margin:0;font-weight:800;font-size:clamp(22px,3vw,30px)}
+.sub{color:var(--muted);font-size:14px;margin-top:4px}
+main{max-width:1100px;margin:20px auto;padding:0 16px 120px}
+.panel{background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.08); border-radius:16px; box-shadow:0 10px 30px rgba(0,0,0,.3); overflow:hidden; margin-bottom:14px}
+.block{padding:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+select,input[type=number],button{background:#09122a;border:1px solid rgba(255,255,255,.12);color:var(--ink);padding:10px 12px;border-radius:12px;font-size:14px;outline:none}
+button{cursor:pointer;transition:.15s; background:#0c1a3e}
+button:hover{transform:translateY(-1px);box-shadow:0 6px 14px rgba(0,0,0,.35)}
+button.primary{background:linear-gradient(135deg,#0ea5e9,#22d3ee);color:#06202b;border:0;font-weight:700}
+button.ghost{background:transparent;border:1px dashed rgba(255,255,255,.2)}
+.small{font-size:12px;color:var(--muted)}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.pill{background:#0b1328;border:1px solid rgba(255,255,255,.12);padding:8px 10px;border-radius:999px;font-size:12px;display:inline-flex;align-items:center;gap:6px}
+.dot{width:8px;height:8px;border-radius:50%}
+.blue{background:var(--accent2)} .green{background:var(--ok)} .red{background:var(--err)}
+.progress{height:10px;background:#1f2937;border-radius:999px;overflow:hidden}
+.bar{height:100%;background:linear-gradient(90deg,#22d3ee,#0ea5e9);width:0%}
+.question{margin:16px;padding:14px;border:1px solid rgba(255,255,255,.08);border-radius:14px;background:rgba(255,255,255,.03)}
+.qhead{font-weight:700;margin-bottom:8px}
+.qmeta{font-size:12px;color:var(--muted)}
+.answers{display:grid;gap:8px;margin-top:10px}
+.ans{padding:12px;border-radius:12px;border:1px solid rgba(255,255,255,.12);background:#0b1328;cursor:pointer}
+.ans.selected{border-color:#60a5fa;background:rgba(59,130,246,.12)}
+.footer{position:fixed;bottom:0;left:0;right:0;display:flex;justify-content:space-between;align-items:center;
+        padding:14px;border-top:1px solid rgba(255,255,255,.08);background:rgba(10,15,30,.96);backdrop-filter: blur(8px)}
+.badge{padding:6px 10px;border-radius:999px;font-size:12px}
+.badge.ok{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.5)}
+.badge.warn{background:rgba(234,179,8,.15);border:1px solid rgba(234,179,8,.5)}
+.badge.err{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.5)}
+.kbd{font-family:ui-monospace,Menlo,Consolas,monospace;background:#0b1328;border:1px solid rgba(255,255,255,.15);padding:2px 6px;border-radius:6px;color:#a7f3d0}
+.nav{display:flex;gap:6px;flex-wrap:wrap}
+.nav button{padding:6px 10px;border-radius:8px}
+.review{padding:14px}
+.review .card{border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:12px;margin:10px 0;background:rgba(255,255,255,.03)}
+.correct{color:#10b981}
+.wrong{color:#ef4444}
+hr.sep{border:none;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);margin:12px 0}
+</style>
+</head>
+<body>
+<header>
+  <h1>CAMS Final Exam Simulator — Weighted Distribution</h1>
+  <div class="sub">Simulates the real exam with the distribution you provided. No instant feedback; full review at the end. Time limit: 3h30m. Keys: <span class="kbd">1–4</span> answer, <span class="kbd">N</span> next, <span class="kbd">P</span> prev.</div>
+</header>
+
+<main>
+  <section class="panel">
+    <div class="block">
+      <div class="grid">
+        <div>
+          <label>Total Questions</label><br>
+          <input id="totalQ" type="number" min="60" max="150" value="125">
+          <div class="small">Default 125 per your distribution. You can reduce for shorter mocks; weights stay proportional.</div>
+        </div>
+        <div>
+          <label>Allow slight re-use if pool is short?</label><br>
+          <select id="reuse">
+            <option value="no" selected>No (unique only)</option>
+            <option value="yes">Yes (rare reuse to hit exact weights)</option>
+          </select>
+          <div class="small">Recommended: No. Set to “Yes” only if you want exact weights with limited pools.</div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <button class="primary" id="startBtn">Start Exam</button>
+        <span class="pill"><span class="dot blue"></span><span id="status">Idle</span></span>
+        <span class="pill"><span class="dot green"></span><span id="answeredMeta">Answered: 0</span></span>
+      </div>
+      <div class="row" style="margin-top:10px">
+        <div class="progress" style="flex:1"><div class="bar" id="progressBar"></div></div>
+      </div>
+      <div class="small" style="margin-top:8px">
+        Distribution applied: Intl Orgs & Standards 28; Legal & Regulatory 31; Operational Procedures 35; Investigations & LE 18; Tech & Systems 8; AI/Crypto 5.
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="examPanel" style="display:none">
+    <div class="block" id="qContainer"></div>
+    <div class="block">
+      <div class="nav">
+        <button id="prevBtn" class="ghost">Prev (P)</button>
+        <button id="nextBtn" class="primary">Next (N)</button>
+        <button id="reviewBtn" class="ghost">Mark for Review</button>
+        <button id="gridBtn" class="ghost">Question Grid</button>
+        <button id="finishBtn" class="primary">Finish & Grade</button>
+      </div>
+      <div id="grid" class="small" style="margin-top:10px"></div>
+    </div>
+  </section>
+
+  <section class="panel" id="resultPanel" style="display:none">
+    <div class="block">
+      <h2>Results</h2>
+      <div id="scoreline"></div>
+      <hr class="sep"/>
+      <div class="review" id="review"></div>
+    </div>
+  </section>
+</main>
+
+<div class="footer">
+  <div>Q <span id="qIndex">0</span>/<span id="qTotal">0</span></div>
+  <div id="footerCat" class="small"></div>
+  <div id="timer" class="badge ok">⏱ 03:30:00</div>
+</div>
+
+<script>
+// ======= Subtopic structure and target weights =======
+
+const TARGET = {
+  "International Organizations & Standards": {
+    total: 28,
+    subs: {
+      "FATF Immediate Outcomes": 8,
+      "Basel Committee": 5,
+      "Egmont Group": 6,
+      "Wolfsberg Group": 4,
+      "FSRBs": 3,
+      "Other international bodies": 2
+    }
+  },
+  "Legal & Regulatory Frameworks": {
+    total: 31,
+    subs: {
+      "USA PATRIOT Act (extraterritorial reach)": 12,
+      "EU AML Directives": 7,
+      "OFAC Sanctions": 8,
+      "Other jurisdictional requirements": 4
+    }
+  },
+  "Operational Procedures": {
+    total: 35,
+    subs: {
+      "CDD/EDD Implementation": 11,
+      "SAR/STR Filing": 8,
+      "Transaction Monitoring": 9,
+      "Record Keeping": 7
+    }
+  },
+  "Investigation & Law Enforcement": {
+    total: 18,
+    subs: {
+      "Investigation methodologies": 8,
+      "Law enforcement cooperation": 5,
+      "Asset recovery": 3,
+      "Information sharing protocols": 2
+    }
+  },
+  "Technology & Systems": {
+    total: 8,
+    subs: {
+      "Monitoring systems": 4,
+      "Data analytics": 2,
+      "RegTech solutions": 2
+    }
+  },
+  "AI and Cryptocurrency": {
+    total: 5,
+    subs: {
+      "AI/Crypto combined": 5
+    }
+  }
+};
+
+// ======= Question helper =======
+function Q(q, options, a, exp){ return {q, options, a, exp}; }
+
+// ======= Banks: ~4+ items per subtopic (can be extended easily) =======
+const BANK = {
+  "International Organizations & Standards": {
+    "FATF Immediate Outcomes": [
+      Q("FATF Immediate Outcomes measure:",["Technical compliance only","Effectiveness of a country's AML/CFT regime across 11 outcomes","Bank profitability","FIU staffing levels"],1,"The IOs assess effectiveness (e.g., risk understanding, supervision, financial intelligence, prosecutions)."),
+      Q("Which aligns with IO.6 (Financial intelligence)?",["Timely FIU dissemination to competent authorities","High number of bank accounts","More STRs regardless of quality","Court convictions only"],0,"IO.6 looks at whether FIU intelligence is used and disseminated effectively."),
+      Q("A poor rating on IO.4 (preventive measures) most likely indicates:",["No national risk assessment","Weak CDD/monitoring implementation by FIs and DNFBPs","Lack of ML prosecutions","Low cash usage"],1,"IO.4 focuses on how well obliged entities apply preventive measures."),
+      Q("Improvement action for IO.10 (TF investigations):",["Increase ad campaigns","Enhance LEA capacity and coordination on TF cases","Reduce SAR filings","Close PEP accounts"],1,"IO.10 deals with effective TF investigation and prosecution.")
+    ],
+    "Basel Committee": [
+      Q("Basel's CDD guidance emphasises:",["Uniform CDD for all customers","Risk-based approach and ongoing monitoring","EDD only at onboarding","Vendor-managed KYC only"],1,"Proportionality and governance are key."),
+      Q("Board responsibilities include:",["Approving customer acceptance policies and oversight of AML programme","Drafting STRs","Selecting correspondent banks for RMs","Setting interest rates"],0,"Tone from the top and governance."),
+      Q("Basel paper expects record retention:",["Indefinite","As set by law; typically ≥5 years with prompt retrieval","No retention","Only for PEPs"],1,"Keep sufficient records for reconstruction."),
+      Q("High-level control to manage correspondent risk:",["Nested relationships unchecked","EDD for payable-through accounts and respondent AML assessment","Ignore respondent audits","Rely on marketing material"],1,"EDD and respondent assessment are essential.")
+    ],
+    "Egmont Group": [
+      Q("Egmont Group’s primary function is:",["Set binding sanctions","Enable FIU-to-FIU cooperation and secure information exchange","Publish BO registries","Run prosecutions"],1,"Egmont is an FIU network."),
+      Q("FIU membership benefits include:",["Direct arrests","Secure channels for intelligence sharing","Setting prudential capital levels","Issuing visas"],1,"Secure communication and cooperation."),
+      Q("Best practice when sharing via Egmont:",["Send raw bank statements publicly","Follow legal bases, minimise data, protect confidentiality","Always notify subjects","Post to intranet"],1,"Data protection and legal basis matter."),
+      Q("Egmont requests should be:",["Unauthorised verbal exchanges","Formally documented with case context and legal basis","Only via social media","Sent to bank staff directly"],1,"Follow formal channels and provide proper context.")
+    ],
+    "Wolfsberg Group": [
+      Q("Wolfsberg Correspondent Banking guidance calls for:",["Standard CDD only","EDD where PTAs/nested relationships exist","No KYCC","Ignoring respondent sanctions risk"],1,"EDD for higher-risk correspondent features."),
+      Q("Private banking principle about BO:",["Signers equal BO","Identify natural persons who own/control; verify SoW","Skip SoW","Rely on nominee statements"],1,"Ultimate beneficial owners and SoW."),
+      Q("Payment transparency expectation:",["Remove originator info to protect privacy","Maintain complete originator/beneficiary information","Send only first name","Defer to respondent"],1,"Payment transparency reduces risk."),
+      Q("When using intermediaries:",["Rely solely on them","Obtain comparable information as if direct onboarding where risk dictates","Skip ongoing monitoring","Let intermediary file STRs"],1,"Comparable info + monitoring as needed.")
+    ],
+    "FSRBs": [
+      Q("FSRBs are:",["Regional FATF-style bodies supporting implementation","National prosecutors","Private consortia","Vendor groups"],0,"FSRBs mirror FATF at regional level."),
+      Q("An example of an FSRB:",["Egmont","APG (Asia/Pacific Group on ML)","Basel Committee","Wolfsberg"],1,"APG, ESAAMLG, GIABA etc."),
+      Q("FSRB mutual evaluations primarily assess:",["Bank profits","Technical compliance and effectiveness","Tax policy","Card fraud only"],1,"Similar to FATF MERs."),
+      Q("Bank benefit from FSRB output:",["Ignore findings","Adjust RBA to address regional risks","Replace policies with vendor text","Stop correspondent relationships"],1,"Insights for risk assessment and controls.")
+    ],
+    "Other international bodies": [
+      Q("Which body sets prudential standards not limited to AML/CFT?",["Basel Committee","Egmont","Interpol","Wolfsberg"],0,"Basel is prudential with AML CDD guidance."),
+      Q("Which body coordinates police cooperation internationally (not standard-setting for AML)?",["Interpol","Basel","Wolfsberg","FATF"],0,"Interpol is police cooperation; AML standards are FATF.")
+    ]
+  },
+
+  "Legal & Regulatory Frameworks": {
+    "USA PATRIOT Act (extraterritorial reach)": [
+      Q("PATRIOT Act extraterritoriality commonly arises when:",["Foreign bank uses a U.S. correspondent account","Non-USD currency used abroad","EU bank merges","Cash deposits only"],0,"Use of a U.S. correspondent account can create U.S. jurisdiction."),
+      Q("Section 311 measures can:",["Designate primary money laundering concerns and impose special measures","Set EU sanctions","Grant visas","Create BO registers"],0,"Section 311 allows special measures."),
+      Q("Which is MOST accurate on subpoenas to foreign banks with U.S. correspondent accounts?",["No reach","May compel records related to that correspondent relationship","Only for U.S. subsidiaries","Only for criminal cases"],1,"Courts have upheld reach via correspondent accounts."),
+      Q("PATRIOT Act KYC requires:",["Uniform CDD only","Customer identification programme + risk-based CDD","KYC for PEPs only","Only sanctions checks"],1,"CIP + risk-based CDD."),
+      Q("Effect of USD clearing via U.S. bank:",["No AML implications","Creates potential U.S. nexus for enforcement","Removes sanctions risk","Blocks EU reach"],1,"Routing through U.S. system creates nexus."),
+      Q("USA extraterritorial reach often interacts with:",["FSRB audits only","OFAC sanctions and wire routing via U.S.","Casino loyalty programmes","Basel capital ratios"],1,"U.S. jurisdiction can extend via system routing."),
+      Q("Which is LEAST likely to trigger U.S. jurisdiction?",["SWIFT message passes a U.S. server","Transaction in local currency settled locally with no U.S. touchpoint","USD correspondent in New York","U.S. person employed by counterparty"],1,"No U.S. touchpoint reduces nexus."),
+      Q("Primary compliance response to U.S. extraterritorial risk:",["Ignore it","Document routing, assess OFAC/PATRIOT exposure, include in RBA","Only block USD","Close all cross-border"],1,"Manage via RBA and routing awareness.")
+    ],
+    "EU AML Directives": [
+      Q("4AMLD/5AMLD trend:",["Reduce transparency","Expand BO registers and risk-based CDD","Remove STR duties","Abolish PEPs"],1,"More transparency and RBA."),
+      Q("Access to BO registers under 5AMLD:",["Nobody","Obliged entities and, in many cases, broader access subject to conditions","Only tax authorities","Only auditors"],1,"Access expanded in many member states with conditions."),
+      Q("6AMLD impact:",["Narrows ML offences","Expands predicate offences and clarifies aiding/abetting liability","Removes corporate liability","Removes sanctions"],1,"Strengthens criminalisation and liability."),
+      Q("Trigger for EDD under EU directives:",["High-risk third countries list","Use of debit cards","Domestic wires","Branch location"],0,"EDD for high-risk third-country exposure."),
+      Q("Travel rule relevance in EU:",["Not applicable","Applies to funds and increasingly to crypto-asset transfers","Only to cards","Only to cheques"],1,"Funds and crypto transfers require originator/beneficiary information."),
+      Q("BO discrepancies reporting:",["Not required","Obliged entities may need to report inconsistencies to registries","Only to customers","Only internal"],1,"Registries quality control mechanism."),
+      Q("Politically exposed persons treatment:",["Ban all PEPs","Risk-based EDD and senior management approval for high-risk PEPs","Treat like any other","Only screen once"],1,"RBA with approvals.")
+    ],
+    "OFAC Sanctions": [
+      Q("OFAC blocking vs rejecting:",["Same","Blocking holds property; rejecting returns/halts without hold","Both release funds","Both require license"],1,"Different outcomes and obligations."),
+      Q("When to escalate a potential match:",["DOB/address/nationality align strongly","Only name partial and nothing else","Vendor says unknown","Never"],0,"Secondary identifiers matter."),
+      Q("License handling:",["Release on application","Keep blocked until license granted","Ignore licenses to counterparties","Replace blocking with monitoring"],1,"Maintain block until authorised."),
+      Q("Grey/black list response:",["No action","Adjust RBA and apply countermeasures/EDD","Close all accounts immediately","Only notify PR"],1,"Risk-based adjustments."),
+      Q("U.S. nexus exists when:",["U.S. person involved or routed via U.S. system","Only USD abroad","Any PEP","EU bank merger"],0,"U.S. persons/system routing."),
+      Q("Which is LEAST likely a sanctions red flag?",["Vague payment references","Multiple banks without reason","Complete and consistent party details","Sudden USD→non-USD shift"],2,"Transparency reduces risk."),
+      Q("Wire-stripping detection step:",["Compare pre/post message fields for removed identifiers","Ignore SWIFT","Disable logging","Rely on paper only"],0,"Look for removed fields."),
+      Q("Post-match documentation should include:",["Nothing","Evidence and rationale for decisions per policy","Only vendor email","Only verbal notes"],1,"Traceable decisions.")
+    ],
+    "Other jurisdictional requirements": [
+      Q("Correspondent due diligence often requires:",["KYCC assessment of respondents","Only KYC of signers","Skip sanctions risk","Marketing review"],0,"Assess respondent AML maturity (KYCC)."),
+      Q("Threshold reporting example outside U.S.:",["Exact same globally","Varies by jurisdiction; document local thresholds","None exists","Always $10,000"],1,"Local laws differ."),
+      Q("Cross-border data transfer for AML:",["Always prohibited","Requires legal basis, e.g., adequacy, SCCs or statutory gateways","No controls","Only via email"],1,"Ensure lawful basis for transfers."),
+      Q("Regulatory engagement approach:",["Ad hoc only","Proactive dialogue, timely remediation evidence, senior accountability","Wait for onsite visit","Press release first"],1,"Constructive supervision engagement.")
+    ]
+  },
+
+  "Operational Procedures": {
+    "CDD/EDD Implementation": [
+      Q("Best PEP control:",["Self-declaration only","Onboarding + periodic/event-driven screening","Only on wires","Only non-residents"],1,"PEPs require ongoing screening."),
+      Q("UBO verification:",["Self-certify only","Verify using reliable, independent sources where possible","Ignore for low risk","Post-onboarding only"],1,"Verify BO proportionate to risk."),
+      Q("Event-driven review strongest trigger:",["Email change","Adverse media linking director to corruption","Debit card request","Address move"],1,"Material adverse media → refresh."),
+      Q("EDD usually includes:",["Remove monitoring","Source of wealth and enhanced monitoring","Only ID re-check","Only block account"],1,"SoW + EDD monitoring."),
+      Q("Periodic review frequency determined by:",["Customer age","Manager preference","Risk rating","Product interest"],2,"Risk-based frequency."),
+      Q("Correspondent onboarding step:",["Skip respondent assessment","KYCC on AML controls incl. PTAs/nested relationships","Marketing approval only","Ignore sanctions"],1,"Assess respondent AML."),
+      Q("Trusts BO identification includes:",["Settlor, trustees, beneficiaries, protector (as applicable)","Auditor","Only trustee company","Bank officer"],0,"Identify relevant parties."),
+      Q("Control for nominees:",["Accept nominee statements","Identify natural persons with ultimate ownership/control","Ignore if listed","Only notarise"],1,"Find the natural persons behind nominees.")
+    ],
+    "SAR/STR Filing": [
+      Q("Top priority for STR:",["Fame of client","Manager vouching","No apparent lawful purpose + typology match","Low balance"],2,"Objective indicators drive STRs."),
+      Q("Narrative should avoid:",["Facts/timeline","Speculation","Transaction details","Deviation from expected"],1,"Avoid conjecture."),
+      Q("LE request for info:",["Provide verbally","Request legal process or verified written request","Notify subject","Decline always"],1,"Follow legal/policy requirements."),
+      Q("Tipping-off prohibition means:",["Inform the customer gently","Do not disclose STR considerations/filings","Share with colleagues broadly","Publish internally"],1,"Maintain confidentiality."),
+      Q("Backlog triage principle:",["Ignore aged alerts","Risk-based prioritisation and documentation","Random","Only by order received"],1,"RBA even for triage."),
+      Q("Board reporting about STRs should:",["Name subjects","Use aggregate metrics; avoid revealing STR existence to subjects","Publish details","Skip"],1,"Protect confidentiality."),
+      Q("Cash-intensive business with opaque BO:",["No SAR ever","Consider SAR after review of activity vs baseline and SoF/SoW gaps","Ignore if long-time client","Only ask RM"],1,"Evaluate and file if warranted."),
+      Q("Quality control for SARs includes:",["No review","Peer/second-line review and feedback to investigators","Only vendor QA","Delete drafts"],1,"Improve consistency/quality.")
+    ],
+    "Transaction Monitoring": [
+      Q("Model validation should include:",["Turn off QA","Independent testing with precision/recall metrics","Vendor brochure","User survey only"],1,"Objective validation."),
+      Q("Scenario tuning best practice:",["Set thresholds to zero","Periodic backtesting vs outcomes + change control","Never change","Only manual review"],1,"Tune with governance."),
+      Q("Alert dispositioning requires:",["Clear rationale and evidence","Only close quickly","Verbal reasoning","Skip documentation"],0,"Traceability."),
+      Q("Data quality issue first step:",["Ignore","Escalate and remediate source; document impact on monitoring","Delete data","Switch off systems"],1,"Fix at source and document."),
+      Q("Suppression lists usage:",["Block all alerts","Careful governance; avoid suppressing true positives","Never use","Use freely"],1,"Prevent masking risk."),
+      Q("Watchlist change management:",["No testing","Test in non-prod, measure FP/TP impact before prod","Push straight to prod","Only revert if user complains"],1,"Governed releases."),
+      Q("Unusual spike in foreign wires:",["Normal","Investigate patterns, counterparties, SoF; tune scenarios if needed","Ignore","Close accounts"],1,"Investigate then act."),
+      Q("Model drift risk:",["Static forever","Performance degrades as behaviours change; monitor and re-tune","Improves over time automatically","Only vendor issue"],1,"Monitor drift."),
+      Q("Link analysis benefit:",["None","Reveal hidden relationships across accounts/entities","Replace SARs","Only for marketing"],1,"Enhances detection.")
+    ],
+    "Record Keeping": [
+      Q("Baseline retention for AML records:",["Delete after filing","≥5 years and promptly retrievable","Only if LE asks","Only 30 days"],1,"Common international baseline."),
+      Q("Sanctions decision documentation:",["Not needed","Evidence + rationale per policy","Only vendor email","Oral note"],1,"Traceability."),
+      Q("CDD/EDD files should include:",["Self-cert only","KYC data, BO docs, SoF/SoW (as applicable), risk rating, review history","Only address","Only screenshots"],1,"Comprehensive records."),
+      Q("Audit trail for alert handling:",["Unnecessary","Maintain timestamps, actors, decisions","Only final result","Store in email"],1,"End-to-end trace."),
+      Q("Data retention conflicts (privacy vs AML):",["Delete all","Apply legal basis/exemptions for AML; document decisions","Ignore privacy","Export to vendor"],1,"Balance legal obligations."),
+      Q("Retrieval SLAs:",["Never defined","Define internal SLAs for regulator/LEA requests","Only ad hoc","Only vendor SLAs"],1,"Be able to respond promptly."),
+      Q("Secure storage principle:",["Open shares","Role-based access, encryption at rest/in transit","Only paper","Shared credentials"],1,"Security basics.")
+    ]
+  },
+
+  "Investigation & Law Enforcement": {
+    "Investigation methodologies": [
+      Q("Most objective starting point:",["Reputation of client","Baseline vs recent activity plus typology linkage","Manager’s opinion","Media rumours"],1,"Use data, not bias."),
+      Q("Case triage prioritises:",["First-in-first-out","Risk-based factors (amounts, jurisdictions, products)","Alphabetical","By RM seniority"],1,"Risk-based triage."),
+      Q("Network analysis helps you:",["Only count customers","Identify hidden links and flows","Replace manual review","Avoid documentation"],1,"Find relationships."),
+      Q("When interviews are needed:",["Never","Use structured questions; avoid tipping-off; coordinate with MLRO","Call subject directly","Email all staff"],1,"Plan and protect confidentiality."),
+      Q("Quality of findings report:",["Speculative","Facts, chronology, supporting evidence and linkage to typologies","Only screenshots","One-liner"],1,"Clear, evidence-based reports."),
+      Q("Asset tracing step:",["Ignore third-party flows","Map entities, accounts, counterparties, and jurisdictions","Skip SWIFT data","Avoid legal review"],1,"Holistic tracing."),
+      Q("Use of external data:",["Always prohibited","Use OSINT/adverse media within policy and legal boundaries","Only paid sources","Only social media"],1,"Follow policy and law."),
+      Q("Case closure best practice:",["No lessons learned","Capture learnings to improve scenarios/training","Delete all docs","Only notify RM"],1,"Feedback loop.")
+    ],
+    "Law enforcement cooperation": [
+      Q("Receiving a production order:",["Ignore","Comply per legal requirements, log scope/times, protect confidentiality","Call subject","Send all data ad hoc"],1,"Controlled, legal compliance."),
+      Q("FIU feedback is useful to:",["Tip off customers","Improve detection scenarios and training","Marketing only","Ignore"],1,"Use to refine programme."),
+      Q("International coordination channel:",["Egmont FIU-to-FIU and MLATs","Email subject","Public posts","Vendor portal"],0,"Legal channels only."),
+      Q("When LE requests non-disclosure:",["Tell RM anyway","Respect legal gag orders and internal need-to-know only","Publish internally","Ask social media"],1,"Control information flow."),
+      Q("Joint operations risk:",["None","Document roles, protect chain of custody, maintain independence of compliance","Share all credentials","Skip approvals"],1,"Governance and evidence control.")
+    ],
+    "Asset recovery": [
+      Q("First step for asset freezing:",["Ask subject for consent","Identify legal basis (court order/authority) and ensure systems can hold assets","Wire funds away","Notify press"],1,"Follow legal basis and systems readiness."),
+      Q("Cross-border asset recovery requires:",["Local decree only","International cooperation frameworks and recognition","No docs","Vendor approval"],1,"Legal recognition mechanisms."),
+      Q("Proceeds of crime identification:",["Only cash","Includes all value derived from criminal activity (funds, property, benefits)","Only securities","Only real estate"],1,"Broad definition.")
+    ],
+    "Information sharing protocols": [
+      Q("Information sharing between banks:",["Always illegal","Possible under frameworks like 314(b) (US) or local equivalents; ensure legal basis","Only with customer consent","Post to forum"],1,"Use lawful channels."),
+      Q("Internal sharing for investigations should:",["Be unrestricted","Follow need-to-know, role-based access, and logging","Include all staff","Skip logging"],1,"Control access.")
+    ]
+  },
+
+  "Technology & Systems": {
+    "Monitoring systems": [
+      Q("Best practice before pushing new scenarios to prod:",["Skip testing","Test in non-prod, measure FP/TP impact","Only UI test","Rely on vendor claim"],1,"Evaluate performance and risk."),
+      Q("Alert quality improvement:",["Suppress everything","Tuning thresholds and adding quality signals with governance","Only increase thresholds","Only decrease thresholds"],1,"Balanced tuning + governance."),
+      Q("Real-time screening risk:",["None","Latency and false positives must be governed; fallback procedures","Always perfect","No documentation required"],1,"Operational risks must be managed."),
+      Q("Model ownership requires:",["No RACI","Clear ownership, change control, periodic validation","Only vendor","Only IT"],1,"Governance around models.")
+    ],
+    "Data analytics": [
+      Q("Which metric pair is most helpful for model evaluation?",["Look & feel","Precision and recall","Font size","User likes"],1,"Measure both over time."),
+      Q("Feature engineering in AML:",["Irrelevant","Design signals (velocity, network features) to capture typologies","Only vendor","Only manual"],1,"Stronger signals → better detection.")
+    ],
+    "RegTech solutions": [
+      Q("Key due diligence when adopting RegTech:",["None","Assess explainability, data protection, security, and validation approach","Only UI","Only price"],1,"Evaluate controls and evidence."),
+      Q("Cloud deployments should:",["Skip controls","Include encryption, IAM, logging, region controls, and resilience","Only UI testing","No audits"],1,"Security and compliance by design.")
+    ]
+  },
+
+  "AI and Cryptocurrency": {
+    "AI/Crypto combined": [
+      Q("Applying AI to monitoring requires:",["Ignore bias","Governance, validation, explainability, and fair treatment controls","Only accuracy","No documentation"],1,"AI must be governed like other models."),
+      Q("Crypto travel rule implication:",["No originator info","Requires originator/beneficiary info transmission between VASPs","Only cash applies","Ignore sanctions"],1,"VASPs share originator/beneficiary data."),
+      Q("On-chain analytics help to:",["Replace KYC","Assess address risk, trace flows, identify sanctions exposure","Only price coins","Only mining"],1,"Compliments KYC and monitoring."),
+      Q("Sanctions screening for crypto should:",["Ignore addresses","Include address lists and analytics for exposure","Only names","Only fiat"],1,"Addresses and related entities matter."),
+      Q("AI false positives handling:",["Ignore","Monitor precision, triage rules, analyst feedback loops","Only count alerts","Delete data"],1,"Performance management reduces waste.")
+    ]
+  }
+};
+
+// ======= Exam state =======
+let exam = {
+  questions: [], // [{q, options, a, exp, cat, sub}]
+  idx: 0,
+  answers: [], // indices or null
+  marked: new Set(),
+  startTs: null,
+  timerId: null,
+  durationSec: 210*60 // 3h30m
+};
+
+// ======= Utils =======
+function shuffle(a){for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a;}
+function sample(arr, n, allowReuse=false){
+  if(n<=arr.length){ return shuffle(arr.slice()).slice(0,n); }
+  if(!allowReuse){ return shuffle(arr.slice()); }
+  // allow rare reuse to hit exact weights
+  const out = shuffle(arr.slice());
+  while(out.length<n){ out.push(arr[Math.floor(Math.random()*arr.length)]); }
+  return out.slice(0,n);
+}
+
+// Build exam with proportional weights based on desired total
+function buildExam(totalDesired, allowReuse){
+  // Compute scaling factor from base 125
+  const baseTotal = 125;
+  const scale = totalDesired / baseTotal;
+  const out = [];
+  Object.entries(TARGET).forEach(([cat, cfg])=>{
+    const catTotal = Math.max(1, Math.round(cfg.total * scale));
+    const subs = cfg.subs;
+    // normalise subs to match catTotal
+    const subEntries = Object.entries(subs).map(([sub, n])=>[sub, Math.max(1, Math.round(n*scale))]);
+    let wanted = subEntries.reduce((s,[_s,n])=>s+n,0);
+    // adjust by diff
+    let diff = catTotal - wanted;
+    for(let i=0; diff!==0 && i<subEntries.length; i++){
+      subEntries[i][1] += (diff>0?1:-1);
+      diff += (diff>0?-1:+1);
+    }
+    // sample from bank
+    subEntries.forEach(([sub, n])=>{
+      const pool = BANK[cat][sub];
+      const picked = sample(pool, n, allowReuse).map(q=>({...q, cat, sub}));
+      out.push(...picked);
+    });
+  });
+  return shuffle(out);
+}
+
+// ======= DOM =======
+const els = {
+  startBtn: document.getElementById('startBtn'),
+  totalQ: document.getElementById('totalQ'),
+  reuse: document.getElementById('reuse'),
+  status: document.getElementById('status'),
+  answeredMeta: document.getElementById('answeredMeta'),
+  progressBar: document.getElementById('progressBar'),
+  examPanel: document.getElementById('examPanel'),
+  qContainer: document.getElementById('qContainer'),
+  prevBtn: document.getElementById('prevBtn'),
+  nextBtn: document.getElementById('nextBtn'),
+  reviewBtn: document.getElementById('reviewBtn'),
+  gridBtn: document.getElementById('gridBtn'),
+  finishBtn: document.getElementById('finishBtn'),
+  grid: document.getElementById('grid'),
+  resultPanel: document.getElementById('resultPanel'),
+  scoreline: document.getElementById('scoreline'),
+  review: document.getElementById('review'),
+  qIndex: document.getElementById('qIndex'),
+  qTotal: document.getElementById('qTotal'),
+  footerCat: document.getElementById('footerCat'),
+  timer: document.getElementById('timer')
+};
+
+function startExam(){
+  const totalDesired = parseInt(els.totalQ.value,10) || 125;
+  const allowReuse = els.reuse.value==='yes';
+  exam.questions = buildExam(totalDesired, allowReuse);
+  exam.idx = 0;
+  exam.answers = Array(exam.questions.length).fill(null);
+  exam.marked = new Set();
+  els.qTotal.textContent = exam.questions.length;
+  els.examPanel.style.display = '';
+  els.resultPanel.style.display = 'none';
+  updateStatus();
+  renderQ();
+  startTimer();
+  buildGrid();
+}
+
+function renderQ(){
+  const q = exam.questions[exam.idx];
+  els.qIndex.textContent = exam.idx+1;
+  els.footerCat.textContent = `${q.cat} › ${q.sub}`;
+  const answeredCount = exam.answers.filter(a=>a!==null).length;
+  els.progressBar.style.width = Math.round(answeredCount / exam.questions.length * 100)+'%';
+  els.answeredMeta.textContent = `Answered: ${answeredCount}`;
+  const selected = exam.answers[exam.idx];
+  els.qContainer.innerHTML = `
+    <div class="question">
+      <div class="qhead">${q.q}</div>
+      <div class="qmeta">${q.cat} • ${q.sub}</div>
+      <div class="answers">
+        ${q.options.map((o,i)=>`
+          <div class="ans ${selected===i?'selected':''}" data-i="${i}"><strong>${String.fromCharCode(65+i)}.</strong> ${o}</div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+  [...els.qContainer.querySelectorAll('.ans')].forEach(el=>el.addEventListener('click', onAnswer));
+}
+
+function onAnswer(e){
+  const i = parseInt(e.currentTarget.dataset.i,10);
+  exam.answers[exam.idx] = i;
+  renderQ();
+  updateStatus();
+}
+
+function nav(delta){
+  const n = exam.idx + delta;
+  if(n<0 || n>=exam.questions.length) return;
+  exam.idx = n;
+  renderQ();
+}
+
+function markReview(){
+  if(exam.marked.has(exam.idx)) exam.marked.delete(exam.idx); else exam.marked.add(exam.idx);
+  buildGrid();
+}
+
+function buildGrid(){
+  let html = '<div class="row">';
+  for(let i=0;i<exam.questions.length;i++){
+    const ans = exam.answers[i];
+    const mark = exam.marked.has(i)?' 🔖':'';
+    html += `<button class="${ans===null?'ghost':''}" onclick="jump(${i})">${i+1}${mark}</button>`;
+  }
+  html += '</div>';
+  els.grid.innerHTML = html;
+}
+function jump(i){ exam.idx=i; renderQ(); }
+
+function finish(){
+  stopTimer();
+  // grade
+  let correct=0;
+  const rows = [];
+  exam.questions.forEach((q,i)=>{
+    const ans = exam.answers[i];
+    const ok = (ans===q.a);
+    if(ok) correct++;
+    const ansText = ans===null?'<em>no answer</em>':`${String.fromCharCode(65+ans)}. ${q.options[ans]}`;
+    rows.push(`
+      <div class="card">
+        <div><strong>Q${i+1} • ${q.cat} › ${q.sub}</strong></div>
+        <div>${q.q}</div>
+        <div class="${ok?'correct':'wrong'}">Your answer: ${ansText}</div>
+        <div>Correct: <strong>${String.fromCharCode(65+q.a)}. ${q.options[q.a]}</strong></div>
+        <div class="small"><em>Why:</em> ${q.exp}</div>
+      </div>
+    `);
+  });
+  const pct = Math.round((correct/exam.questions.length)*100);
+  const badge = pct>=80?'ok':(pct>=65?'warn':'err');
+  els.scoreline.innerHTML = `<p><span class="badge ${badge}">Score ${pct}%</span> — Correct ${correct}/${exam.questions.length}</p>`;
+  els.review.innerHTML = rows.join('');
+  els.resultPanel.style.display = '';
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function updateStatus(){
+  const unanswered = exam.answers.filter(a=>a===null).length;
+  els.status.textContent = `${unanswered} unanswered • ${exam.marked.size} marked`;
+}
+
+function startTimer(){
+  exam.startTs = Date.now();
+  renderTimer();
+  exam.timerId = setInterval(renderTimer, 1000);
+}
+function stopTimer(){ if(exam.timerId){ clearInterval(exam.timerId); exam.timerId=null; } }
+function renderTimer(){
+  const elapsed = Math.floor((Date.now()-exam.startTs)/1000);
+  const remain = Math.max(0, exam.durationSec - elapsed);
+  const hh = String(Math.floor(remain/3600)).padStart(2,'0');
+  const mm = String(Math.floor((remain%3600)/60)).padStart(2,'0');
+  const ss = String(remain%60).padStart(2,'0');
+  els.timer.textContent = `⏱ ${hh}:${mm}:${ss}`;
+  if(remain<=1800) els.timer.className='badge warn';
+  if(remain<=600) els.timer.className='badge err';
+  if(remain===0){ finish(); }
+}
+
+// Events
+els.startBtn.addEventListener('click', startExam);
+els.prevBtn.addEventListener('click', ()=>nav(-1));
+els.nextBtn.addEventListener('click', ()=>nav(1));
+els.reviewBtn.addEventListener('click', markReview);
+els.gridBtn.addEventListener('click', ()=>{ els.grid.style.display = els.grid.style.display==='none'?'':'none'; });
+els.finishBtn.addEventListener('click', finish);
+
+// Keyboard shortcuts
+document.addEventListener('keydown', (e)=>{
+  if(['1','2','3','4'].includes(e.key)){
+    const idx = parseInt(e.key,10)-1;
+    const opt = document.querySelector('.answers .ans[data-i="'+idx+'"]');
+    if(opt) opt.click();
+  } else if(e.key.toLowerCase()==='n'){ nav(1); }
+  else if(e.key.toLowerCase()==='p'){ nav(-1); }
+});
+
+</script>
+
+<script>
+// --- Injected harvested pools from PDFs (auto-generated) ---
+(function() {
+  const harvested = {"International Organizations & Standards": {"FATF Immediate Outcomes": [{"q": "With regard to exchanges of information between FIUs of different countries, wh at are three controlling principles?", "options": ["Sharing between FIUs should be permitted only if the central banks are also a party to the sharing.", "The sharing of information should be done as freely as possible on the basis of reciprocity.", "The exchange of informatio n should take place as informally and as rapidly as possible.", "Differences in the definition of offenses should not impede the free exchange of information. Answer: BCD"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Identify three key roles of regional FATF -style bodies.", "options": ["Writing the FATF 40 Recommendations", "Periodically publishing typology reports identifying and addressing threats to the financial system.", "Actively participating in identifying AML technical assistance needs", "Assisting in the FATF mutual evaluation process Answer: BCD Anti -Money Laundering/Counter -Terrorist Financing Compliance Programs"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}], "Basel Committee": [{"q": "Which of the follow ing statements is true?", "options": ["The Egmont Group membership comprises national FIUs.", "The Wolfsberg Group membership comprises central bank governors of the G10.", "The European Union recommends legislation to be passed in the member countries.", "The Basel Committee levies fines on the member countries for non -compliance with AML laws. Answer: A"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}], "Egmont Group": [{"q": "The greatest risk of money laundering in casinos occ urs if the casino", "options": ["Provide their customers with a wide array of gambling services.", "Operate in a non -Egmont member country.", "Allow customers with credit balances to withdraw funds by check in another jurisdiction.", "Only send suspicious transaction reports to the financial intelligence unit of the country it operates in. Answer: C"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "The Egmont Training Group published FIUs in Action: 100 Sanitized Cases. Which two of the items noted below were listed in the report as part of the six most frequent indicators of money laundering?", "options": ["Defensive stance to questioning", "Use of precious stones for moving value", "Unrealistic wealth compared to client profile", "Significant use of prepaid cards Answer: AC"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "What are the three classic gateways for international cooperation and sharing?", "options": ["Mutual legal assistance treaties (MLATs)", "Law enforcement\u2019s use of grand jury subpoenas", "Exchange of information between financial intelligence units (FIUs)", "Exchange of information between supervisory agencies Answer: ACD"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Within a regulated organization, who is responsible for reporting suspicious activity to the relevant authorities?", "options": ["Frontline employees", "Auditors", "The MLRO or BSA officer", "Senior management Answer: C [The person who detects the suspicious activity is responsible for reporting it internally for further development to establish whether the activity is suspicious. The MLROs, BSA officer, or other designated officer \u201creport\u201d or \u201csign\u201d as the reporter to the financial intelligence unit (FIU). At a higher level, the board m ust ensure that the right people, technology, and processes are in place to meet the reporting requirement. Reporting is genuinely a collective responsibility, but reporting to the FIU is the responsibility of the MLRO, BSA officer, or designated officer. ]"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}], "Wolfsberg Group": [{"q": "The Wolfsberg Group published its Anti -Money Laundering Principles for Correspondent Banking. Which three of the following elements are recommended to be included in the due diligence of a correspondent banking client?", "options": ["The geographic risk", "The ownership and management structure", "The r\u00e9sum\u00e9 of the compliance officer", "The customer base Answer: AC"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}], "FSRBs": [], "Other international bodies": [{"q": "Which statement is true?", "options": ["Lawyers in FATF member countries generally cannot be used to serve as formation agents to set up trusts, front companies or shell companies.", "Lawyers and similar professional gatekeepers are called money services businesses.", "Lawyers gener ally cannot be used to act as nominee shareholders for a beneficial owner.", "Lawyers can be abused by launderers by using the accounts they set up for them for the placement and layering of funds. Answer: D"], "a": 3, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Which of the following is the most difficult regulatory challenge facing a foreign financial institution with a correspondent banking rel ationship in the U.S.?", "options": ["USA PATRIOT Act", "Basel Due Diligence Principles for Banks", "FATF Guidance on Terrorist Financing", "UN Security Council Resolution on Correspondent Banking Answer: A"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Which were the Basel Committee\u2019s two main motivations to encourage strong know your customer programs in its paper, Customer Due Diligence for Banks? (Choose two)", "options": ["Mirror FATF\u2019s KYC recommendations.", "Meet European Union guidelines.", "Protect the safety and soundness of banks.", "Protect the integrity of banking systems . Answer: CD"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "The Basel Committee in Banking Supervision can be defined as a comm ittee", "options": ["That develops the guidance for FATF.", "Of the CEOs of the major international banks.", "Of senior members of international law enforcement who harmonize international AML/CTF laws.", "Of the G10 central bank governors, which issues guidance on subjects including customer due diligence, risk management and cross -border wire transfers. Answer: D"], "a": 3, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "The FATF has consistently noted the use of casinos in money laundering schemes in its annual typologies reports. One laundering technique involving casinos is", "options": ["Asking for winners\u2019 checks to be made out in the name of third persons or without a payee.", "Abusing casinos by circumventing its gatekeepers.", "Prepaying a casino token or chip by using funds that are already in the casino system, creating a debit balance.", "Extensive gambling via multiple games throughout the casino. Answer: A"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "The FATF 40 Recommendations are organized into seven groups. Which three of the following are valid group names?", "options": ["Money Laundering and Confiscation", "Financial a nd Non -Financial Institution Preventative Measures", "Powers and Responsibilities of Competent Authorities and Other Instructional Measures", "National Cooperation Answer: ABC"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "The FATF 40 Recommendations are grouped into seven topics. Identify three of those topics from the list below.", "options": ["Terrorist Financing and Financing of Proliferation", "Powers and Responsibilities of Competent Authorities and Other Institutional Measures", "Money Laundering and Confiscation", "Financial and Non -Financial Institution Preventative and Detection Measures Answer: ABC"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}]}, "Legal & Regulatory Frameworks": {"USA PATRIOT Act (extraterritorial reach)": [{"q": "Which three of the following statements are included in Section 313 of the PATRIOT Act definition of physical presence in respect to shell banks?", "options": ["There is a fixed address.", "It employs at least one full -time employee.", "The majority of the board of directors must be local residents.", "Banking records are kept at the fixed address. Answer: ABD"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}], "EU AML Directives": [{"q": "Which three of the following statements are true in respect to the Fourth EU Anti -Money Laundering Directive?", "options": ["Member countries can decide when and if they incorporate it into their local laws.", "It repeals and replaces the Third EU Directive on Anti -Money Laundering.", "Each member country must hold bene ficial ownership information in a central registry and it must be made available to competent authorities.", "New definition of PEPs include family members and persons known to be close associates Answer: BCD"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "According to the EU Directives, an independ ent legal professional is obligated to report suspicion of money laundering in a client relationship when", "options": ["Representing a client in a legal matter.", "Ascertaining the legal position for a client.", "Participating in financial or corporate transactions.", "Obtaining information associated with a judicial proceeding. Answer: C"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}], "OFAC Sanctions": [{"q": "In which situation could a high -ranking individual at a regulated organization be held legally accountable for regulatory violations or financial crimes?", "options": ["The individual\u2019s senior manager is involved in linked financial crime offenses.", "The individual is prosecuted fo r a civil offense while employed by a regulated entity.", "The individual\u2019s behaviors and actions encourage violations or crimes.", "The individual works for an organization that violates sanctions and ignores regulations. Answer: C [There is increasing regulat ory focus on individual liability for professionals when their behaviors and actions encourage, tolerate, or lead to regulatory violations or criminal activity. Individuals put themselves at risk of being investigated, sanctioned, or prosecuted. They also potentially involve and tarnish the reputation of other individuals and organizations. ]"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "In anti -money laund ering terminology, a red flag is", "options": ["a warning sign indicating potentially suspicious, risky transactions or activities.", "a general banking term used once the balance is negative or overdue.", "the standard flag of countries not cooperative in fighting money laund ering and terrorist financing.", "an indicator that a customer is listed on an economic sanctions list. Answer: A"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}], "Other jurisdictional requirements": []}, "Operational Procedures": {"CDD/EDD Implementation": [{"q": "Which statement is true regarding the risk of politically exposed persons (PEPs)?", "options": ["PEPs provide access to third parties on whom the financial institution has not conducted sufficient due diligence.", "PEPs have significantly greater exposure to the politically corrupt funds, including accepting bribes or misappropriating government funds.", "PEPs are foreign customers who inherently present additional risk as they are engaged in cross - border transactions.", "PEPs generally do not pose enhanced risks to an institution due to their political standing; rather, PE Ps increase the prestige of an institution. Answer: B"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "What does beneficial owner mean?", "options": ["A person or entity who has direct signator y authority over an account and whose name appears on the account", "A person or entity who is ultimately entitled to the funds in the account, even though his or her name may not appear on the account", "A person or entity who is the originator and the destinat ion of most (but not all) transactions conducted within the account but who does not ultimately control such funds", "A person or entity who is a gatekeeper, has the legal title to the account and typically transfers the funds to a trust Answer: B"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "In most money laundering international standards, it is stated that", "options": ["Financial institutions are not responsib le for money laundering or suspicious transactions taking place within their accounts until the government places the customer on a watch list.", "Informing customers that their accounts and/or transactions are the subject of an AML investigation is not punis hable.", "The dirty money undergoing money laundering will not be confiscated because of privacy laws.", "The institution should identify the beneficial owner(s) of the account. Answer: D"], "a": 3, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "A compliance officer is looking to improve a compliance program for a financial institution that operates in several countr ies. The institution has developed consistent customer due diligence (CDD) requirements for all customers of the institution that exceed each of the individual country\u2019s requirements. When looking to provide management reporting on the CDD compliance effor ts of the institution, which of the following would make the most sense?", "options": ["Report by each country\u2019s compliance with the legal requirements within their country.", "Report on compliance with the company\u2019s stated requirements.", "Report on compliance with each count ry\u2019s requirements only for those customers that are serviced by branches in multiple countries; all others should be reported on the company\u2019s stated requirements.", "Report on the level of monitoring performed on the activity in the accounts. Answer: B"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "A customer wants to establish a sizable relationship with a financial institution. The AML officer is not comfortable with the client\u2019s explanation for the source of the funds, but the client manager vouches for the client and is eager to open the relationship quickly. What should the AML officer do to validate the client\u2019s sources of funds?", "options": ["Accept the client manager\u2019s approval of the client.", "Allow the account to be opened but be sure to monitor the account activity.", "Perform a background investigation to determine whether the client\u2019s source of funds is credible.", "Decline the account. Answer: C"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}], "SAR/STR Filing": [{"q": "Which three of the following is an indication of possible money laundering in an insurance industry scenario?", "options": ["Insurance products sold through intermediaries, agents or brokers", "Single -premium insurance bonds, redeemed at a discount", "Policyholders who are unconcerned about penalties for early cancellation", "Policyholders who redeem the policy within the free look period Answer: BCD"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "In which stage of money laundering would you classify the use of laundered funds to purchase high - value assets and luxury items? Integration", "options": ["Structuring", "Placement", "Construction Answer: A"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Whic h of the following statements is true?", "options": ["Credit cards are not likely to be used in the layering phase of money laundering because of restrictions in cash payments.", "Credit cards are effective instruments for laundering money because the transactions do not create an audit trail.", "A launderer can launder money by prepaying his or her credit card using funds that are already in the banking system, creating a credit balance on his account, and requesting a credit refund.", "A launderer can use i llicit funds that are already in the banking system to pay his or her credit card bill for goods purchased, which is an example of placement. Answer: C"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "The tactic in which individuals make multiple deposits in small quantities to avoid detection is called", "options": ["Paralleling .", "Integration .", "Investing .", "Structuring . Answer: D"], "a": 3, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Which three of the following statements are true?", "options": ["Online gambling provides an excellen t method of laundering because transactions are conducted primarily through credit or debit cards and the sites are typically unregulated offshore firms.", "An institution can know when a credit card is used for online gambling transactions because the cards rely on codes that illustrate the type of transactions.", "Online gambling provides an excellent method of laundering because it lends itself to any type of cash movement and there is no face -to-face contact with the customer.", "Some banks no longer allow the u se of credit cards for online gambling transactions. Answer: ABD"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "How do operational affiliations between NPOs and terrorist entities support terrorism?", "options": ["The NPO can be involved in every el ement of the terrorist entity\u2019s operations.", "The NPO can be unable to provide humanitarian aid to people following disasters.", "The terrorist entity can threaten the NPO\u2019s internal staff members.", "The NPO\u2019s internal staff can influence its operations and allow activities to support terrorism. Answer: D [Cases in which NPOs are exploited by internal actors affiliated to terrorist entities demonstrate that these individuals are able to exercise influence over the NPO operations to ultimately support terrorist activities. This affiliation allows activities that are meant to financially and otherwise support activities carried out by one or both parties, such as the collection, transfer, retention, and expenditure of resources, and the delivery of progr ams. The affiliation involves every element of NPO operations. ]"], "a": 3, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Which is a primary reason some criminals use precious metals and gems to launder money?", "options": ["Avoid taxes", "Easy to trade and trace", "Industry has no reporting requirements", "Transfer value across borders Answer: D [Criminals use precious metals and gems to launder money because they make it easy to transfer value across borders, have high value in a compact form, hold value over time, are easily transported, it is difficult to trace their origins, and they are easily exchanged for cash or used as currency. ]"], "a": 3, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "The money laundering reporting officer of a financial institution should", "options": ["report everything that comes his or her way from anyone in the organization.", "report everything that comes his or her way from senior management or Board of Directors.", "review all avai lable information and file a suspicious transaction report in respect of any unusual or potentially suspicious activity.", "report only what the reporting officer\u2019s superior agrees should be reported. Answer: C"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Which of the following should an anti -money laundering specialist include on an interna l investigation log?", "options": ["A government order on a customer that garnishes his wages for failure to pay child support", "Supporting documentation and materials for denying service to a client with a bad credit rating", "Notes pertaining to activity that is unusual but for which a suspicious transaction report has not been filed", "Reference to a memorandum to the company\u2019s corporate management relating to budgetary and similar concerns Answer: C"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "A small broker -dealer has an AML compliance program that addresses procedures for filing suspicious transaction reports and includes policies, procedures and internal controls for customer identification, monitoring accounts and identifying money laundering red f lags. Every employee of the broker dealer is trained via the Internet in January and in July on AML issues. The board does not take the Internet training. Instead, the compliance officer organizes a luncheon for them where an outsider comes in and trains t hem. The program provides for the appointment of a compliance officer, and once a year the compliance officer conducts an audit to test the program. In what respect does the program need improvement?", "options": ["The AML program should be tested by an independent perso n, not the compliance officer.", "The AML program should be tested more than once per year.", "The board should receive the same training provided to the employees.", "Employees should not be trained via the Internet, because classroom training is better. Answer: A"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "In which case might a suspicious transaction report not be necessary?", "options": ["A customer deposits money of suspicious origins and refuses to answer questions from the financial institution\u2019s staff.", "A customer tries to move money that is suspected of being derived from criminal activity.", "A customer owns a large supermarket and deposits large amounts of cash several times a day.", "A customer\u2019s account is showing transaction activities that are beyond his k nown financial capability. Answer: C"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "An AML compliance officer is looking to establish a suspicious activity reporting process at her small institution. Which of the following should be incorporated into the procedures?", "options": ["Allow employees to refer suspicious activity directly to the government authorities to file as quickly as possible.", "Have employees refer all unusual activi ty to the internal independent audit department to assess whether the activity should be reported.", "Have employees refer all unusual activity to senior management to ensure they are aware of all unusual activity within the organization.", "Have employees refer all unusual activity to her so that she may conduct an investigation into what needs to be reported to authorities. Answer: D"], "a": 3, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "When documenting ongoing training efforts, which of the following should be documented to demonstrate the distribution of the training to appropriate employees?", "options": ["Whether the training was provided to the board of directo rs", "The topics the training addressed", "The names of the employees who took the training with their department name", "Whether the employees who took the training passed the post -training assessment Answer: C"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Marie, a compliance officer at a fi nancial institution, attends an annual AML -industry conference and learns of a new regulation that will impact her current AML processes. The regulatory environment has been relatively stable within the industry for several years but Marie is glad she atte nded this conference to get news of the new requirements. What should Marie do to stay abreast of future changes in requirements?", "options": ["Request permission to attend future annual AML -industry conferences.", "Ask internal auditors to provide her with notice of chang es needed to the program.", "Implement a process to determine when new regulations are published and assess them for impacts to the AML program.", "Conduct a risk assessment to determine if the regulations change frequently enough to implement a process to check for changes. Answer: C"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "A longtime customer of the bank comes into the bank a number of times over a series of 6weeks and deposits a large amount of cash and, the next day, asks for the amount to be wired to a third - world country. This behavior is not in keeping with his normal business practices. What should the compliance officer recommend?", "options": ["Contact the board of directors as soon as possible and inform them of this activity.", "Immediately contact law enforcement by phone and tell them of the potential money laundering activity.", "Open an internal investigation, collect all the appropriate documentation and review it in order to decide on whether to file a SAR.", "Make a note of the activity but do not file a SAR to avoid the risk of losing a longtime customer. Answer: C"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "The compliance officer is trying to put together a set of procedures for handling the decision of whether or not to file a SAR. What should the compliance officer include as part of these procedures?", "options": ["The officer should r ecommend that the decision as to whether or not to file a SAR be subjected to a quality assurance review.", "The officer should recommend decentralizing the decision in order to speed up the process and to ensure that the decision is made closest to where the activity occurred.", "The officer should recommend that SARs only be filed once they have been authorized by the board of directors of the bank.", "The officer should recommend that SARs only be filed once they have received a thorough legal review. Answer: A"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "In conducting a criminal investigation, what are three things that the law enforcement investigators should do?", "options": ["Conduct computer -based searches on the individuals and entities involved.", "Review any previously filed STRs on the individuals and entities involved.", "Analyze the financial transactions and activity of the subject and determine what is potentially illegal.", "Initiate a Section 314(b) request for information. Answer: ABC"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "The compliance officer reads about a large potential fraud case in the morning newspaper. When the officer gets to the bank, the officer uncovers the fact that the potential fraud case involves an important customer of the bank. After doing an internal inv estigation, the officer determines that there is no suspicious activity in the customer\u2019s accounts. What should the officer do next?", "options": ["The officer should notify the board of directors of the nature and results of the internal investigation.", "The officer shoul d document the nature and results of the internal investigation and keep the documentation in an appropriate file.", "The officer should file a SAR in case the customer\u2019s accounts could assist law enforcement in its formal criminal investigation.", "The officer should file a SAR in order to justify the time spent on the internal investigation and to avoid being second -guessed by the bank examiners. Answer: B"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "What are three possible red flags indicating suspicious or unusual activity that might warrant an in vestigation and the filing of a SAR?", "options": ["The opening of a new account without a local telephone number or utility bill available", "Unusually high monthly balances in comparison to known sources of income", "High level of monetary transactions through an account dur ing the course of a month but low beginning and ending balances", "Multiple cash deposits made just under the reporting threshold Answer: BCD"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "What three steps should be taken when there is a criminal investigation that is targeting the bank itself?", "options": ["The senior management and the Board of Directors should be notified and kept apprised of the progress of the investigation.", "The bank should consider retaining experienced outside counsel to assist the bank in responding to the investigation.", "The bank should immediately go to the media and explain why it has done nothing wrong.", "The relevant employees of the bank should be notified of the existence of the investigation and should be given instructions as to what to do and how to act. Answer: ABD"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "The compliance officer of a financial institution has just received an extensive law enforcement subpoena focusing on the potential inadequacy of the institution\u2019s AML program. What three steps should the compliance officer take?", "options": ["He or she should advise the employees to maintain the confidentiality of all SARs.", "He or she should notify the board of directors and senior management of the financial institution of the subpoena and its focus on the institution.", "He or she s hould consider advising the institution to retain outside counsel experienced in this area.", "He or she should consider providing law enforcement with the results of any internal investigation conducted by the institution. Answer: BCD"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "What crime is commit ted when compliance personnel deliberately ignore and refuse to address or escalate violations within their AML/CFT framework?", "options": ["Willful blindness", "Concealment of information", "Failure to file SAR", "Misuse of staff resources Answer: A [Compliance officers have a legal obligation to address and escalate compliance deficiencies, and to ensure that they and their organizations are not involved in or contributing to regulatory breaches. Willful blindness, or ignoring situations when they are brought to one\u2019s attention, may result in personal liability or prosecution. ]"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "A law enforcement representative calls up the compliance officer and urgently requests information pertaining to a particular account in connection with an ongoing terrorist financing investigati on. What should the compliance officer do?", "options": ["Get permission from the board of directors to hand the material over to law enforcement.", "Hand the material over to law enforcement immediately because of the urgent nature of the request.", "Request that the law enfo rcement representative provides a court order, a grand jury subpoena or other legal process unless the bank has already filed a SAR on the matter.", "Get permission from outside legal counsel before handing the material over to law enforcement. Answer: C"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Jane, an investigator with law enforcement, is given a wide -ranging case to investigate involving potential money laundering in a number of countries and entities. Which three public source documents or records could aid Jane in furthering her investigation?", "options": ["Licensing and registration files", "Court records", "Domestic corporate filings", "Police arrest records Answer: ABC"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "What are three factors with regard to how and when to report an STR to the senior management and/or the board of director s of a financial institution?", "options": ["Whether the STRs filed are in excess of the previous year\u2019s filings", "Whether the STR indicates any compliance deficiencies", "Whether the STR is indicative of any significant AML trends", "Whether the STR raises significant issues, e specially in terms of reputational risk Answer: BCD"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "What are three initial things that a law enforcement investigator should consider in following upon an STR submitted by a financial institution?", "options": ["In cross -border cases, seek international assistance .", "Consider providing immunity to the target of the investigation to get more information quickly.", "Trace the source and ownership of illegal money through all appropriate accounts.", "Identify potentially suspicious activity and any specified unlawful activity . Answer: ACD"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}], "Transaction Monitoring": [{"q": "Which of the following is a method by which ca sinos can be exploited to facilitate money laundering?", "options": ["Employment of cashiers in VIP rooms", "Cash deposits exceeding reporting thresholds in exchange for casino chips", "High -rolling gamblers who are from another jurisdiction", "Check deposits into gaming accounts Answer: B [To facilitate cash placement money laundering in a casino, the customer must transact in cash. A customer\u2019s cash transaction volume, frequency, value, currency, denomination, and source of cash funds must be evaluated to assess the risk of cas h money laundering taking place. ]"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Over lunch with a friend from the computer operations department, a junior compliance analyst learns that there was a problem during the previous week related to data being transmitted to the transaction monitoring application. The friend states that becau se it was purely a technical computer system issue, he was quietly proud that he was able to rectify it quickly himself during the early hours of the morning. What action should the analyst take?", "options": ["Congratulate his friend on his prompt action.", "Congratulate h is friend and, as soon as possible, ensure that the compliance officer is aware of the situation.", "Nothing because the appropriate controls are in place for such events.", "Immediately report the situation to the regulators. Answer: B"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "As part of their role in fighting money la undering, financial institutions should", "options": ["designate a compliance officer.", "depend solely on the state\u2019s staff for combating money laundering.", "refuse small cash deposits under the reporting threshold.", "not open accounts for people from high -risk jurisdictions. Answer: A"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Joe, the compliance officer for a small bank, h as noticed that new regulations now require reporting on cross -border transactions that exceed a certain threshold. What are the appropriate next steps for Joe to take to prepare his bank for the new requirements?", "options": ["Consult with the regulators, provide train ing to impacted associates and work with the technology partners to capture all cross -border transactions for reporting.", "Provide training to impacted associates, work with technology partners to capture all cross -borders transaction for reporting and imple ment a testing plan to be sure appropriate transactions are captured and reported.", "Work with technology partners to capture all cross -border transactions for reporting, implement a testing plan to be sure appropriate transactions are captured and consult with the regulators.", "Implement a testing plan to be sure appropriate transactions are captured and reported, provide training to impacted associates and consult with the regulators. Answer: B"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Of the following scenarios, which two are potential red flags indicating possible suspicious activity that should be investigated further?", "options": ["A large family with multiple accounts held in the name of different family members", "Accounts held for a business in a branch that is located on the other side of town from where the business is located", "An individual who holds multiple accounts under the same name", "A company that has multiple accounts, one for each of their various subsidiary businesses Answer: BC"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "A financial institution is concerned about the possibility of the proceeds from human trafficking being funneled through the institution. What are three things the institution should look out for?", "options": ["Multiple wire transfers, often below the reporting thresholds, sent from foreign countries", "Multiple, unrelated individuals sending wires to the same beneficiary", "Accounts for foreign workers for which the em ployment agency is the custodian for the accounts", "A group of four women who come into the financial institution to open separate accounts Answer: ABC"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}], "Record Keeping": [{"q": "What three initia l actions should a financial institution take in responding to red flags that indicate that a customer is laundering money through his or her accounts?", "options": ["Identify and review internal transactions engaged in by the customer.", "Perform an Internet investigation focused on the customer, including a review of court records.", "Confront the customer about the possible abuse of his or her accounts.", "Compare the income generated by the customer with comparable businesses in the area. Answer: ABD"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}]}, "Investigation & Law Enforcement": {"Investigation methodologies": [{"q": "Identify three methods of laundering money using lawyers.", "options": ["Creating trusts for clients", "Buying and selling property", "Setting up and managing a charity", "Litigating a civil case for a client Answer: ABC"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "An AML compliance officer was reviewing customers at XYZ Bank and one of the customers (Mr. Sam Tropicana) attracted her attention. During the recent months, the cash deposits and withd rawals that were transacted through his account increased with amounts ranging between $7,500 and $17,000. In addition, Sam deposited two checks, issued by a casino, into his account for $32,000 each. When opening the account, Sam stated that he operated a n import/export company. Which one of the following items should cause the compliance officer to launch an investigation?", "options": ["Sam maintained a personal account as well as the business account.", "Sam\u2019s home telephone number was disconnected last month.", "Sam asked for a letter of credit to finance some imports from a new supplier.", "Sam had a recent increase in large cash transactions for his import/export business. Answer: D"], "a": 3, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "A financial institution branch manager who has been in place for over 10 years has not taken a vacation for almost four years. The company does not allow employees to roll vacation over from year to year. An AML compliance officer has noticed unusual activity in several accounts at the branch location. What should the AML officer do?", "options": ["Fire the manager for violation of bank policy.", "Report the manager to authorities for engaging in suspicious activity.", "Conduct an investigation to establish whether the manager has engaged in transactions in the accounts where the unusual activity has occurred.", "Conduct a background check to see if the manager has been convicted of criminal activity. Answer: C"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "After a financial institution designates an individual to respond to all law enforcement requests, when should the institution consider retaining an experienced outside counsel for assistance?", "options": ["Whenever the institution receives a subpoena from any law enforce ment agency", "When the institution itself appears to be the target of a criminal investigation", "When law enforcement appears to be focused on the accounts of a very good and long - standing customer of the institution", "When the banking agencies criticize the ade quacy of the institution\u2019s AML monitoring procedures Answer: B"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "When should a compliance officer recommend that a financial institution conduct an internal investigation? (Choose three.)", "options": ["When there is a suspicion that an employee is conspiring with a long -term customer to launder money through the bank", "When several customers open separate accounts at different branches but with the same contact information", "When the bank\u2019s regulatory agency recommends changes to the AML policy", "When a l ong-term employee decides to take only intermittent vacation days but not two weeks in a row, per bank policy Answer: ABD"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Roy, a BSA officer for a large financial institution, is reviewing a possible money laundering case. What are three potential re d flags that should concern him?", "options": ["Multiple purchases and sales of property over a short period of time", "High number of transactions over the Internet or by phone", "Newly arrived customer from out of state opening a business account", "Two or more people using the same identification Answer: ABD"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Rick is the AML compliance officer for a small bank that had AML difficulties and is operating under a deferred prosecution agreement with the federal government. The FBI approaches Rick and requests that the bank maintain an account the FBI is examining so that the FBI can monitor continuing activity. What two things should Rick do?", "options": ["Ask that the request be submitted in writing.", "Ensure that the request is from someone with the appropriate authority.", "Ask the bo ard of directors to approve keeping the account open after an internal investigation.", "Keep the account open in order to avoid incurring any further disfavor with the federal government. Answer: AB"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "What are three practical tips in interviewing employe es with regard to an unusual or suspicious transaction they have witnessed?", "options": ["Interview the employees as soon after the occurrence as possible in order to ensure that their memories are fresh.", "Try to put the employees at ease during the interview and start w ith relatively easy, non-controversial questions before getting into more sensitive matters.", "Use open -ended questions for the employees in order to ensure that the questions do not dictate what the expected answer is.", "Control the interview as much as possi ble in order to attempt to resolve the matter quickly and uncover the wrong doer. Answer: ABC"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Identify three key aspects of delivering targeted training for different audiences and job functions .", "options": ["Determining whether to focus on real or hypothetical case studies", "Determining how to provide the training", "Determining the focus of the training", "Determining whom to train Answer: BCD"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Diane, the AML compliance officer for a large financial institution, uncovers a serious case of potential money laundering being conducted through a number of related accounts. What three factors should she consider in deciding whether or not to close the accounts?", "options": ["Whether the account holder is a close associate of any of the members of the board of directors", "The legal basis for closing the accounts", "The reputational risk to the institu tion if the accounts are maintained", "Whether the alleged money laundering activity is occurring in all of the accounts or just some of the accounts Answer: BCD"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "What three factors could cause a financial institution to update its existing AML program?", "options": ["The launch of a new product", "The election of a new board of directors", "The passage of time (e.g., 12 \u201318 months)", "The acquisition of another financial institution Answer: ACD Conducting and Responding to Investigations"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}], "Law enforcement cooperation": [{"q": "What hinders law enforcement\u2019s ability to monitor and detect the use of social media platforms by terrorists?", "options": ["Communications", "Advertising", "Encryption", "Fundraising Answer: C [Monitoring and surveillance of social media platforms by law enforcement can greatly enhance the detection of social media abuse by terrorists. Encryption, the pr ocess of encoding information, is a challenge that hinders law enforcement\u2019s ability to monitor and detect terrorist financing.]"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "What three factors should a prosecutor take into consideration when deciding whether to bring criminal charges against a financial institution?", "options": ["Whether the institution has a criminal history", "Whether the institution cooperated with the law enforcement in vestigation", "Whether the institution discovered and self -reported the potential criminal violation", "Whether the institution is a very large institution and its prosecution will make good headlines for the law enforcement agency Answer: ABC"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "When a bank receives a subpoena for information about a specific account, what two steps should the compliance officer take?", "options": ["The compliance officer should ensure that the staff investigate and collect all documents responsive to the subpoena.", "The compliance officer sh ould insist on law enforcement explaining why the subpoena was issued and what law enforcement is looking for.", "The compliance officer should ensure that the subpoena is reviewed by senior management and/or counsel and be responded to in a timely manner.", "The compliance officer should only comply with the subpoena after first getting approval from the bank\u2019s external legal counsel. Answer: AC"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "What policies and procedures should management implement to ensure legal orders are reviewed and processed appropriately?", "options": ["Senior management should ensure the legal department reviews accounts for suspicious activities after receiving legal orders and executes seizure warran ts in a timely manner.", "Senior management should establish a formal process for the review and documenting of written policies to implement policies and procedures requiring the timely processing of legal orders.", "Senior management should ensure frontline em ployees are aware of all legal orders, including grand jury subpoenas, keep -open letters, and seizure warrants.", "Senior management should implement policies and procedures requiring the AML department to review legal correspondence from internal and externa l legal counsel for suspicious activity. Answer: B [Senior management should establish a formal process for the review and documenting of written policies to implement policies and procedures requiring the timely processing of legal orders. ]"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "When a financial institution is served with a search warrant by a law enforcement agency, what are three things that the employees of the institution should do?", "options": ["They should not release any documents until the institution\u2019s outside counsel a rrives on the scene.", "They should ask for an d obtain a copy of the warrant.", "They should try to obtain an inventory of the materials that the law enforcement agents take from the institution.", "They should review the warrant to determine its scope. Answer: BCD"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}], "Asset recovery": [], "Information sharing protocols": []}, "Technology & Systems": {"Monitoring systems": [], "Data analytics": [], "RegTech solutions": []}, "AI and Cryptocurrency": {"AI/Crypto combined": [{"q": "What is the definition of a respondent bank?", "options": ["A bank for which another financial institution establishes, maintains, administers or manages a correspondent account", "A bank that provides international services to another local financial institution", "A foreign bank that does not have a permanent staff", "A bank that is not subject to any regulation Answer: A"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "A new products manager wants to p ropose a product involving prepaid cards but the AML officer sees some problems. What would be three risks that the AML officer might raise? The new product would enable customers to move funds around the world quickly.", "options": ["The product can be reloaded and used anonymously.", "There might be an influx of new customers who have not been vetted seeking to use the product.", "The cards could be used as a substitute for bulk -cash smuggling. Answer: ABD"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Which method of payment is preferred by criminals operating on the darknet?", "options": ["US dollar", "Bitcoin", "Euro", "Payment -in-kind Answer: B [The darknet offers its users anonymity, and crypto currencies , which are often the pr eferred method of payment on darknet sites, provide an additional way to veil transactions ]"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Why are NPOs at risk of abuse by terrorist entities?", "options": ["NPOs lack transparency", "NPOs receive considerable funding from terrorists", "NPOs and terrorist entities operate in the same global environment", "NPOs need terrorists to guarantee safe passage Answer: C [NPOs and terrorist entities operate in the same global environment. They often seek to access the same communities, just with very different intents. The NPOs are repairers of vulnerable communities. The terrorists are the exploiters and aggravators. ]"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "What is a key technique of gold -related money laundering?", "options": ["Conducting sales on the dark web", "Over -invoicing and under -invoicing", "The concealment of origin", "The use of crypto currencies Answer: C [A common technique of gold -based money laundering is physical smuggling from where gold is illicitly sourced to where it is marketed. For example, a company facilitates the importation of illicitly -mined gold from a jurisdiction with no gold mines to another jurisdiction. It is then resold in t hat jurisdiction to an unrelated local refinery by obscuring its true origin. ] International AML/CFT Standards"], "a": 2, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Which of the following controls would most effectively minimize the need to correct failures to collect required customer information in the account opening process?", "options": ["A quality review staff that checks paper applications to ensure all fields are complete", "An automated account -opening platform that requires data entry prior to allowing the account to be opened", "Requiring that a manager review and approve all new account applications", "Documenting a procedure that s ets forth the steps required to open an account Answer: B"], "a": 1, "exp": "Source: ACAMS_Review_Test.pdf"}, {"q": "Why is it important for financial organizations to cooperate with regulatory authorities when compliance issues arise?", "options": ["Cooperation can lead to a reduction in fines and penalties.", "Cooperation can lead to forgiveness of due diligence failures.", "Cooperation can provide immunity to senior management when information was withheld from them.", "Cooperation can avoid appointment of a third -party independent review function. Answer: A [When systemic issues are discovered, cooperation with regul ators can lead to a reduction in fines and penalties. ]"], "a": 0, "exp": "Source: ACAMS_Review_Test.pdf"}]}};
+  function pushAll(dst, src) { if(!src) return; for (const it of src) dst.push(it); }
+  for (const [cat, subs] of Object.entries(harvested)) {
+    for (const [sub, arr] of Object.entries(subs)) {
+      try {
+        const dst = BANK[cat][sub];
+        pushAll(dst, arr);
+      } catch(e) {
+        console.warn('Missing pool for', cat, sub, e);
+      }
+    }
+  }
+  console.log('Harvested question counts:', {"International Organizations & Standards": {"FATF Immediate Outcomes": 2, "Basel Committee": 1, "Egmont Group": 4, "Wolfsberg Group": 1, "FSRBs": 0, "Other international bodies": 7}, "Legal & Regulatory Frameworks": {"USA PATRIOT Act (extraterritorial reach)": 1, "EU AML Directives": 2, "OFAC Sanctions": 2, "Other jurisdictional requirements": 0}, "Operational Procedures": {"CDD/EDD Implementation": 5, "SAR/STR Filing": 26, "Transaction Monitoring": 6, "Record Keeping": 1}, "Investigation & Law Enforcement": {"Investigation methodologies": 11, "Law enforcement cooperation": 5, "Asset recovery": 0, "Information sharing protocols": 0}, "Technology & Systems": {"Monitoring systems": 0, "Data analytics": 0, "RegTech solutions": 0}, "AI and Cryptocurrency": {"AI/Crypto combined": 7}}, 'Total added:', 81);
+})();
+</script>
+
+</body>
+</html>

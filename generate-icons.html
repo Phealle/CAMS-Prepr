@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Icon Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .icon-generator {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            margin: 10px;
+        }
+        .download-btn {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .download-btn:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="icon-generator">
+        <h1>CAMS Quiz Icon Generator</h1>
+        <p>This tool generates app icons for the CAMS Quiz Launcher. Click the download buttons to save each icon size.</p>
+        
+        <div id="icons"></div>
+        
+        <p><strong>Instructions:</strong></p>
+        <ol>
+            <li>Click each download button to save the icon</li>
+            <li>Save icons in the <code>icons/</code> folder</li>
+            <li>Use the exact filenames shown (e.g., icon-192x192.png)</li>
+        </ol>
+    </div>
+
+    <script>
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        
+        function createIcon(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#0f172a');
+            gradient.addColorStop(1, '#0b1022');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Border
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = size * 0.02;
+            ctx.strokeRect(0, 0, size, size);
+            
+            // Main icon - "C" for CAMS
+            ctx.fillStyle = '#22d3ee';
+            ctx.font = `bold ${size * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('C', size / 2, size / 2);
+            
+            // Small "AMS" text
+            ctx.fillStyle = '#e5e7eb';
+            ctx.font = `bold ${size * 0.15}px Arial`;
+            ctx.fillText('AMS', size / 2, size * 0.8);
+            
+            return canvas;
+        }
+        
+        function downloadIcon(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // Generate all icons
+        sizes.forEach(size => {
+            const canvas = createIcon(size);
+            const filename = `icon-${size}x${size}.png`;
+            
+            const container = document.createElement('div');
+            container.style.display = 'inline-block';
+            container.style.textAlign = 'center';
+            container.style.margin = '10px';
+            
+            container.appendChild(canvas);
+            container.appendChild(document.createElement('br'));
+            
+            const btn = document.createElement('button');
+            btn.className = 'download-btn';
+            btn.textContent = `Download ${filename}`;
+            btn.onclick = () => downloadIcon(canvas, filename);
+            container.appendChild(btn);
+            
+            document.getElementById('icons').appendChild(container);
+        });
+    </script>
+</body>
+</html>
